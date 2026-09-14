@@ -9,7 +9,8 @@ _SCHEMA = """
 CREATE TABLE IF NOT EXISTS guild_settings (
     guild_id INTEGER PRIMARY KEY,
     admin_role_id INTEGER,
-    invite_log_channel_id INTEGER
+    invite_log_channel_id INTEGER,
+    giveaway_ping_role_id INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS giveaway_templates (
@@ -118,6 +119,11 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         conn.executescript(_SCHEMA)
+        # Migration for databases created before giveaway_ping_role_id was added.
+        try:
+            conn.execute("ALTER TABLE guild_settings ADD COLUMN giveaway_ping_role_id INTEGER")
+        except sqlite3.OperationalError:
+            pass  # column already exists
 
 
 # ---------------- guild settings ----------------
@@ -127,7 +133,10 @@ def get_guild_settings(guild_id):
         row = conn.execute(
             "SELECT * FROM guild_settings WHERE guild_id = ?", (guild_id,)
         ).fetchone()
-        return dict(row) if row else {"guild_id": guild_id, "admin_role_id": None, "invite_log_channel_id": None}
+        return dict(row) if row else {
+            "guild_id": guild_id, "admin_role_id": None,
+            "invite_log_channel_id": None, "giveaway_ping_role_id": None,
+        }
 
 
 def set_admin_role(guild_id, role_id):
@@ -145,6 +154,15 @@ def set_invite_log_channel(guild_id, channel_id):
             "INSERT INTO guild_settings (guild_id, invite_log_channel_id) VALUES (?, ?) "
             "ON CONFLICT(guild_id) DO UPDATE SET invite_log_channel_id = excluded.invite_log_channel_id",
             (guild_id, channel_id),
+        )
+
+
+def set_giveaway_ping_role(guild_id, role_id):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO guild_settings (guild_id, giveaway_ping_role_id) VALUES (?, ?) "
+            "ON CONFLICT(guild_id) DO UPDATE SET giveaway_ping_role_id = excluded.giveaway_ping_role_id",
+            (guild_id, role_id),
         )
 
 
