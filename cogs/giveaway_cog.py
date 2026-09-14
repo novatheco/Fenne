@@ -313,12 +313,15 @@ class GiveawayCog(commands.Cog):
 
         db.set_giveaway_message(giveaway_id, msg.id, thread.id if thread else None)
 
-        # Ping blacklisted + extra-entry roles in a small follow-up message (not in the embed).
-        ping_role_ids = list(dict.fromkeys(template["blacklisted_roles"] + template["extra_entry_roles"]))
-        if ping_role_ids:
-            mentions = " ".join(f"<@&{rid}>" for rid in ping_role_ids)
+        # Ping the server's configured giveaway-ping role (set via /giveaway-ping-role),
+        # not the template's blacklisted/extra-entry roles.
+        settings = db.get_guild_settings(guild.id)
+        ping_role_id = settings.get("giveaway_ping_role_id")
+        if ping_role_id:
+            role = guild.get_role(ping_role_id)
+            mention = role.mention if role else f"<@&{ping_role_id}>"
             await channel.send(
-                f"{mentions}\n🎁 A new giveaway just started: **{giveaway['prize']}**!",
+                f"{mention}\n🎁 A new giveaway just started: **{giveaway['prize']}**!",
                 allowed_mentions=discord.AllowedMentions(roles=True),
             )
 
@@ -369,17 +372,20 @@ class GiveawayCog(commands.Cog):
         except (discord.NotFound, discord.HTTPException):
             pass
 
+        if winners:
+            mentions = " ".join(f"<@{w}>" for w in winners)
+            await channel.send(
+                f"🎊 Congratulations {mentions}! You won **{g['prize']}**!",
+                allowed_mentions=discord.AllowedMentions(users=True),
+            )
+        else:
+            await channel.send(f"😔 The **{g['prize']}** giveaway ended with no eligible entries — no winner could be picked.")
+
         if g["thread_id"]:
             thread = guild.get_channel(g["thread_id"]) or guild.get_thread(g["thread_id"])
-            if thread:
-                if winners:
-                    mentions = " ".join(f"<@{w}>" for w in winners)
-                    await thread.send(
-                        f"🎊 Congratulations {mentions}! You won **{g['prize']}**!",
-                        allowed_mentions=discord.AllowedMentions(users=True),
-                    )
-                else:
-                    await thread.send("😔 Nobody eligible entered this giveaway — no winner could be picked.")
+            if thread and winners:
+                mentions = " ".join(f"<@{w}>" for w in winners)
+                await thread.send(f"🎊 Congrats {mentions}! Winners were announced in {channel.mention}.")
 
         self.tasks.pop(giveaway_id, None)
 
