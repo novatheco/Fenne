@@ -21,6 +21,8 @@ COGS = [
     "cogs.embeds_cog",
     "cogs.autoresponse_cog",
     "cogs.leaderboard_cog",
+    "cogs.emoji_cog",
+    "cogs.reminder_cog",
 ]
 
 

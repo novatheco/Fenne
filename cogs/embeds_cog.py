@@ -4,7 +4,7 @@ from discord import app_commands
 
 import config
 import database as db
-from cogs.permissions import event_admin_check
+from cogs.permissions import event_admin_check, log_app_command_error
 
 BUTTON_STYLES = {
     "blurple": discord.ButtonStyle.blurple,
@@ -130,7 +130,7 @@ class EmbedsCog(commands.Cog):
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         msg = str(error) if isinstance(error, app_commands.CheckFailure) else "An unexpected error occurred."
         if not isinstance(error, app_commands.CheckFailure):
-            print(f"Embeds cog error: {error}")
+            log_app_command_error("Embeds", interaction, error)
         if not interaction.response.is_done():
             await interaction.response.send_message(msg, ephemeral=True)
         else:

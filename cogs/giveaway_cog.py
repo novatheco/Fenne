@@ -8,39 +8,8 @@ from discord.ext import commands
 from discord import app_commands
 
 import database as db
-from cogs.permissions import is_event_admin, event_admin_check
-
-DURATION_RE = re.compile(r"(\d+)\s*([dhms])", re.IGNORECASE)
-UNIT_SECONDS = {"d": 86400, "h": 3600, "m": 60, "s": 1}
-
-
-def parse_duration(text: str) -> int | None:
-    """Parses strings like '1h30m', '2d', '45m' into a number of seconds."""
-    text = text.strip().lower()
-    matches = DURATION_RE.findall(text)
-    if not matches:
-        return None
-    total = 0
-    for amount, unit in matches:
-        total += int(amount) * UNIT_SECONDS[unit]
-    return total if total > 0 else None
-
-
-def format_duration(seconds: float) -> str:
-    seconds = max(0, int(seconds))
-    d, seconds = divmod(seconds, 86400)
-    h, seconds = divmod(seconds, 3600)
-    m, s = divmod(seconds, 60)
-    parts = []
-    if d:
-        parts.append(f"{d}d")
-    if h:
-        parts.append(f"{h}h")
-    if m:
-        parts.append(f"{m}m")
-    if not parts:
-        parts.append(f"{s}s")
-    return " ".join(parts)
+from cogs.permissions import is_event_admin, event_admin_check, giveaway_host_check, log_app_command_error
+from utils import parse_duration, format_duration
 
 
 def parse_role_list(guild: discord.Guild, text: str) -> list[int]:
@@ -73,50 +42,81 @@ def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, s
     host = guild.get_member(giveaway["host_id"])
     host_mention = host.mention if host else f"<@{giveaway['host_id']}>"
 
-    lines = []
-    if giveaway.get("body_text"):
-        lines.append(giveaway["body_text"])
-        lines.append("")
-    embed.description = "\n".join(lines) if lines else None
+    prize_text = db.apply_emoji_shortcuts(guild.id, giveaway["prize"])
+    body_text = db.apply_emoji_shortcuts(guild.id, giveaway.get("body_text") or "")
 
-    embed.add_field(name="Number of Winners", value=str(giveaway["winner_count"]), inline=False)
-    embed.add_field(name="Hosted by", value=host_mention, inline=False)
-    embed.add_field(name="Prize", value=giveaway["prize"], inline=False)
+    # Built as separate blocks joined with blank lines in between, so the embed
+    # has real breathing room instead of everything crammed together.
+    blocks = []
+
+    if body_text:
+        blocks.append(body_text)
+
+    blocks.append(f"🎗️ **Hosted By:** {host_mention}")
+    blocks.append(f"🏆 **Number of Winners:** {giveaway['winner_count']}")
+    blocks.append(f"🎁 **Prize:**\n{prize_text}")
 
     if status == "running":
         end_ts = int(giveaway["end_time"])
-        embed.add_field(name="⏰ Ends", value=f"<t:{end_ts}:R>", inline=False)
+        blocks.append(f"⏳ **Ends:** <t:{end_ts}:R>")
     else:
-        embed.add_field(name="⏰ Ended", value="This giveaway has ended.", inline=False)
+        blocks.append("⏳ **Ended**")
 
     if template["blacklisted_roles"]:
         names = []
         for rid in template["blacklisted_roles"]:
             role = guild.get_role(rid)
             names.append(role.mention if role else f"<@&{rid}>")
-        embed.add_field(name="🚫 Blacklisted roles", value=", ".join(names), inline=False)
+        blocks.append("🚫 **Blacklisted roles:**\n" + ", ".join(names))
 
     if template["extra_entry_roles"]:
         names = []
         for rid in template["extra_entry_roles"]:
             role = guild.get_role(rid)
             names.append((role.mention if role else f"<@&{rid}>") + " +1")
-        embed.add_field(name="✨ Extra Entries", value=", ".join(names), inline=False)
+        blocks.append("✨ **Extra Entries:**\n" + ", ".join(names))
 
     if winners is not None:
         if winners:
-            embed.add_field(
-                name="🎊 Winners",
-                value="\n".join(f"<@{w}>" for w in winners),
-                inline=False,
-            )
+            blocks.append("🎊 **Winners**\n" + "\n".join(f"<@{w}>" for w in winners))
         else:
-            embed.add_field(name="🎊 Winners", value="No valid entries — no winner could be chosen.", inline=False)
+            blocks.append("🎊 **Winners**\nNo valid entries — no winner could be chosen.")
+
+    embed.description = "\n\n".join(blocks)
 
     if template.get("icon_url"):
         embed.set_thumbnail(url=template["icon_url"])
 
+    if giveaway.get("id"):
+        embed.set_footer(text=f"Giveaway ID: {giveaway['id']}")
+
     return embed
+
+
+def build_ended_announcement(guild: discord.Guild, giveaway: dict, winners: list[int], rerolled: bool = False) -> tuple[str, discord.Embed]:
+    """Builds the 'Giveaway Ended!' congrats message + embed shown in the channel."""
+    host = guild.get_member(giveaway["host_id"])
+    host_mention = host.mention if host else f"<@{giveaway['host_id']}>"
+    prize_text = db.apply_emoji_shortcuts(guild.id, giveaway["prize"])
+
+    verb = "Rerolled" if rerolled else "Ended"
+    if winners:
+        mentions = ", ".join(f"<@{w}>" for w in winners)
+        content = f"🎉 Congratulations {mentions} for winning {host_mention}'s giveaway!"
+        winners_value = "\n".join(f"<@{w}>" for w in winners)
+    else:
+        content = f"😔 {host_mention}'s giveaway ended with no eligible winner."
+        winners_value = "No valid entries."
+
+    embed = discord.Embed(
+        title=f"🎉 Giveaway {verb}!",
+        description="Congratulations to the winners!" if winners else "No one was eligible to win.",
+        color=discord.Color.green() if winners else discord.Color.dark_gray(),
+    )
+    embed.add_field(name="🎁 Prize", value=prize_text, inline=False)
+    embed.add_field(name="🏆 Winners", value=winners_value, inline=False)
+    embed.set_footer(text=f"Giveaway ID: {giveaway['id']}")
+    return content, embed
 
 
 class GiveawayEditModal(discord.ui.Modal, title="Edit Giveaway"):
@@ -256,7 +256,7 @@ class GiveawayCog(commands.Cog):
     # ---------------- /ga ----------------
 
     @app_commands.command(name="ga", description="Create a giveaway from a saved template.")
-    @event_admin_check()
+    @giveaway_host_check()
     async def ga(self, interaction: discord.Interaction, template: str, prize: str, winners: int, duration: str):
         tmpl = db.get_template(interaction.guild.id, template)
         if not tmpl:
@@ -362,8 +362,10 @@ class GiveawayCog(commands.Cog):
         winners = self._pick_winners(guild, entries, template, g["winner_count"])
 
         db.update_giveaway(giveaway_id, status="ended")
+        db.record_winners(giveaway_id, winners)
 
         channel = guild.get_channel(g["channel_id"])
+        g["id"] = giveaway_id
         embed = build_giveaway_embed(guild, g, template, status="ended", winners=winners)
 
         try:
@@ -372,14 +374,8 @@ class GiveawayCog(commands.Cog):
         except (discord.NotFound, discord.HTTPException):
             pass
 
-        if winners:
-            mentions = " ".join(f"<@{w}>" for w in winners)
-            await channel.send(
-                f"🎊 Congratulations {mentions}! You won **{g['prize']}**!",
-                allowed_mentions=discord.AllowedMentions(users=True),
-            )
-        else:
-            await channel.send(f"😔 The **{g['prize']}** giveaway ended with no eligible entries — no winner could be picked.")
+        content, announce_embed = build_ended_announcement(guild, g, winners)
+        await channel.send(content, embed=announce_embed, allowed_mentions=discord.AllowedMentions(users=True))
 
         if g["thread_id"]:
             thread = guild.get_channel(g["thread_id"]) or guild.get_thread(g["thread_id"])
@@ -388,6 +384,49 @@ class GiveawayCog(commands.Cog):
                 await thread.send(f"🎊 Congrats {mentions}! Winners were announced in {channel.mention}.")
 
         self.tasks.pop(giveaway_id, None)
+
+    # ---------------- /giveaway-reroll ----------------
+
+    @app_commands.command(name="giveaway-reroll", description="Reroll an ended giveaway's winner(s), excluding previous winners. One-time only.")
+    @giveaway_host_check()
+    async def giveaway_reroll(self, interaction: discord.Interaction, giveaway_id: int):
+        g = db.get_giveaway(giveaway_id)
+        if not g or g["guild_id"] != interaction.guild.id:
+            await interaction.response.send_message(f"No giveaway found with ID `{giveaway_id}` in this server.", ephemeral=True)
+            return
+        if g["status"] != "ended":
+            await interaction.response.send_message("That giveaway hasn't ended yet.", ephemeral=True)
+            return
+        if g["rerolled"]:
+            await interaction.response.send_message("That giveaway has already been rerolled once.", ephemeral=True)
+            return
+
+        template = self._template_by_id(g["template_id"])
+        previous_winners = set(db.get_winners(giveaway_id))
+        entries = [uid for uid in db.list_entries(giveaway_id) if uid not in previous_winners]
+
+        new_winners = self._pick_winners(interaction.guild, entries, template, g["winner_count"])
+        if not new_winners:
+            await interaction.response.send_message(
+                "No eligible entrants left to reroll (everyone who entered already won).", ephemeral=True
+            )
+            return
+
+        db.mark_rerolled(giveaway_id)
+        db.record_winners(giveaway_id, new_winners)
+
+        channel = interaction.guild.get_channel(g["channel_id"])
+        all_winners = list(previous_winners) + new_winners
+        embed = build_giveaway_embed(interaction.guild, g, template, status="ended", winners=all_winners)
+        try:
+            msg = await channel.fetch_message(g["message_id"])
+            await msg.edit(embed=embed, view=None)
+        except (discord.NotFound, discord.HTTPException):
+            pass
+
+        content, announce_embed = build_ended_announcement(interaction.guild, g, new_winners, rerolled=True)
+        await interaction.response.send_message("✅ Rerolled.", ephemeral=True)
+        await channel.send(content, embed=announce_embed, allowed_mentions=discord.AllowedMentions(users=True))
 
     def _template_by_id(self, template_id: int) -> dict:
         with db.get_conn() as conn:
@@ -431,7 +470,7 @@ class GiveawayCog(commands.Cog):
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         msg = str(error) if isinstance(error, app_commands.CheckFailure) else "An unexpected error occurred."
         if not isinstance(error, app_commands.CheckFailure):
-            print(f"Giveaway cog error: {error}")
+            log_app_command_error("Giveaway", interaction, error)
         if not interaction.response.is_done():
             await interaction.response.send_message(msg, ephemeral=True)
         else:

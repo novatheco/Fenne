@@ -1,3 +1,6 @@
+"""
+Fill these in before running the bot.
+"""
 import os
 from dotenv import load_dotenv
 
@@ -11,7 +14,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 # Your Discord user ID. Owners can always use admin commands, even without
 # the configured admin role.
 OWNER_IDS = {
-    1178457671758790767, 1309742757949997118 # TODO: replace/add your Discord user ID(s) here
+    1178457671758790767,  # TODO: replace/add your Discord user ID(s) here
 }
 
 DB_PATH = "eventbot.db"
