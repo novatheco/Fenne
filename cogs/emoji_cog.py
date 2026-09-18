@@ -47,7 +47,7 @@ class EmojiCog(commands.Cog):
 
     @app_commands.command(
         name="addemoji",
-        description="Upload an image as one of the bot's own emojis (out of 2000), usable as :name: in giveaways/reminders.",
+        description="Upload an image as one of the bot's emojis (out of 2k), usable as :name: in giveaways/reminders.",
     )
     @app_commands.describe(
         name="Shortcut name — used as :name: in giveaway/reminder text",
