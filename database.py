@@ -86,6 +86,12 @@ CREATE TABLE IF NOT EXISTS emoji_shortcuts (
     PRIMARY KEY (guild_id, name)
 );
 
+CREATE TABLE IF NOT EXISTS bot_emojis (
+    name TEXT PRIMARY KEY,
+    emoji_id INTEGER NOT NULL,
+    animated INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS giveaway_winners (
     giveaway_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
@@ -622,40 +628,49 @@ def set_leaderboard_mode(guild_id, name, mode):
         )
 
 
-# ---------------- emoji shortcuts ----------------
+# ---------------- bot (application) emojis ----------------
+# These are real emojis owned by the bot's Discord application (up to 2000 total,
+# usable in any server the bot is in), not just a linked string to some other
+# guild's emoji — that old approach silently broke whenever the bot didn't share
+# the emoji's home server.
 
-def add_emoji_shortcut(guild_id, name, emoji):
+def add_bot_emoji(name, emoji_id, animated):
     with get_conn() as conn:
         conn.execute(
-            "INSERT INTO emoji_shortcuts (guild_id, name, emoji) VALUES (?, ?, ?) "
-            "ON CONFLICT(guild_id, name) DO UPDATE SET emoji = excluded.emoji",
-            (guild_id, name.lower().strip(), emoji),
+            "INSERT INTO bot_emojis (name, emoji_id, animated) VALUES (?, ?, ?) "
+            "ON CONFLICT(name) DO UPDATE SET emoji_id = excluded.emoji_id, animated = excluded.animated",
+            (name.lower().strip(), emoji_id, int(animated)),
         )
 
 
-def remove_emoji_shortcut(guild_id, name):
+def remove_bot_emoji(name):
     with get_conn() as conn:
-        cur = conn.execute(
-            "DELETE FROM emoji_shortcuts WHERE guild_id = ? AND name = ?", (guild_id, name.lower().strip())
-        )
+        cur = conn.execute("DELETE FROM bot_emojis WHERE name = ?", (name.lower().strip(),))
         return cur.rowcount > 0
 
 
-def list_emoji_shortcuts(guild_id):
+def get_bot_emoji(name):
     with get_conn() as conn:
-        rows = conn.execute(
-            "SELECT * FROM emoji_shortcuts WHERE guild_id = ? ORDER BY name", (guild_id,)
-        ).fetchall()
+        row = conn.execute("SELECT * FROM bot_emojis WHERE name = ?", (name.lower().strip(),)).fetchone()
+        return dict(row) if row else None
+
+
+def list_bot_emojis():
+    with get_conn() as conn:
+        rows = conn.execute("SELECT * FROM bot_emojis ORDER BY name").fetchall()
         return [dict(r) for r in rows]
 
 
-def apply_emoji_shortcuts(guild_id, text):
-    """Replaces :name: occurrences in text with registered emoji shortcuts."""
+def emoji_mention(row):
+    return f"<a:{row['name']}:{row['emoji_id']}>" if row["animated"] else f"<:{row['name']}:{row['emoji_id']}>"
+
+
+def apply_emoji_shortcuts(text):
+    """Replaces :name: occurrences in text with the bot's own registered application emojis."""
     if not text:
         return text
-    shortcuts = list_emoji_shortcuts(guild_id)
-    for row in shortcuts:
-        text = text.replace(f":{row['name']}:", row["emoji"])
+    for row in list_bot_emojis():
+        text = text.replace(f":{row['name']}:", emoji_mention(row))
     return text
 
 

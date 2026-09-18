@@ -42,8 +42,8 @@ def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, s
     host = guild.get_member(giveaway["host_id"])
     host_mention = host.mention if host else f"<@{giveaway['host_id']}>"
 
-    prize_text = db.apply_emoji_shortcuts(guild.id, giveaway["prize"])
-    body_text = db.apply_emoji_shortcuts(guild.id, giveaway.get("body_text") or "")
+    prize_text = db.apply_emoji_shortcuts(giveaway["prize"])
+    body_text = db.apply_emoji_shortcuts(giveaway.get("body_text") or "")
 
     # Built as separate blocks joined with blank lines in between, so the embed
     # has real breathing room instead of everything crammed together.
@@ -97,7 +97,7 @@ def build_ended_announcement(guild: discord.Guild, giveaway: dict, winners: list
     """Builds the 'Giveaway Ended!' congrats message + embed shown in the channel."""
     host = guild.get_member(giveaway["host_id"])
     host_mention = host.mention if host else f"<@{giveaway['host_id']}>"
-    prize_text = db.apply_emoji_shortcuts(guild.id, giveaway["prize"])
+    prize_text = db.apply_emoji_shortcuts(giveaway["prize"])
 
     verb = "Rerolled" if rerolled else "Ended"
     if winners:

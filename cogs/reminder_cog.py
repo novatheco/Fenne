@@ -77,7 +77,7 @@ class ReminderCog(commands.Cog):
             if channel and role:
                 try:
                     await channel.send(
-                        f"{role.mention} {row['message']}",
+                        f"{role.mention} {db.apply_emoji_shortcuts(row['message'])}",
                         allowed_mentions=discord.AllowedMentions(roles=True),
                     )
                 except discord.HTTPException as e:
@@ -153,7 +153,7 @@ class ReminderCog(commands.Cog):
         user = self.bot.get_user(row["user_id"]) or await self._safe_fetch_user(row["user_id"])
         if user:
             try:
-                await user.send(f"⏰ Reminder: {row['message']}")
+                await user.send(f"⏰ Reminder: {db.apply_emoji_shortcuts(row['message'])}")
             except discord.HTTPException as e:
                 print(f"[Reminder #{reminder_id}] could not DM user {row['user_id']}: {e}")
         db.mark_reminder_delivered(reminder_id)
