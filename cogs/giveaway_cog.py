@@ -7,6 +7,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+import config
 import database as db
 from cogs.permissions import is_event_admin, event_admin_check, giveaway_host_check, log_app_command_error
 from utils import parse_duration, format_duration
@@ -35,26 +36,25 @@ def parse_role_list(guild: discord.Guild, text: str) -> list[int]:
 
 
 def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, status: str, winners: list[int] | None = None) -> discord.Embed:
-    color = discord.Color.gold() if status == "running" else discord.Color.dark_gray()
-    title = f"🎁 {template['top_message'] or 'GIVEAWAY'} 🎁" if status == "running" else f"Giveaway — {status.title()}"
-    embed = discord.Embed(title=title, color=color)
+    color = discord.Color(config.EMBED_COLOR_HEX)
+    top_message = template["top_message"] or "GIVEAWAY"
+    title = f":party: {top_message} :party:" if status == "running" else f"Giveaway — {status.title()}"
+    embed = discord.Embed(title=db.apply_emoji_shortcuts(title), color=color)
 
     host = guild.get_member(giveaway["host_id"])
     host_mention = host.mention if host else f"<@{giveaway['host_id']}>"
 
-    prize_text = db.apply_emoji_shortcuts(giveaway["prize"])
-    body_text = db.apply_emoji_shortcuts(giveaway.get("body_text") or "")
-
     # Built as separate blocks joined with blank lines in between, so the embed
-    # has real breathing room instead of everything crammed together.
+    # has real breathing room instead of everything crammed together. Icon tokens
+    # (:name:) are resolved to the bot's own uploaded emojis in one pass at the end.
     blocks = []
 
-    if body_text:
-        blocks.append(body_text)
+    blocks.append(f":prize: **Prize:**\n{giveaway['prize']}")
+    blocks.append(f":winner: **Number of Winners:** {giveaway['winner_count']}")
+    blocks.append(f":host: **Hosted By:** {host_mention}")
 
-    blocks.append(f"🎗️ **Hosted By:** {host_mention}")
-    blocks.append(f"🏆 **Number of Winners:** {giveaway['winner_count']}")
-    blocks.append(f"🎁 **Prize:**\n{prize_text}")
+    if giveaway.get("body_text"):
+        blocks.append(giveaway["body_text"])
 
     if status == "running":
         end_ts = int(giveaway["end_time"])
@@ -67,22 +67,36 @@ def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, s
         for rid in template["blacklisted_roles"]:
             role = guild.get_role(rid)
             names.append(role.mention if role else f"<@&{rid}>")
-        blocks.append("🚫 **Blacklisted roles:**\n" + ", ".join(names))
+        blocks.append(":blacklist: **Blacklisted roles:**\n" + "\n".join(names))
+
+    if template.get("required_roles"):
+        names = []
+        for rid in template["required_roles"]:
+            role = guild.get_role(rid)
+            names.append(role.mention if role else f"<@&{rid}>")
+        blocks.append(":musthave: **Must have the role:**\n" + "\n".join(names))
 
     if template["extra_entry_roles"]:
         names = []
         for rid in template["extra_entry_roles"]:
             role = guild.get_role(rid)
             names.append((role.mention if role else f"<@&{rid}>") + " +1")
-        blocks.append("✨ **Extra Entries:**\n" + ", ".join(names))
+        blocks.append(":extraentries: **Extra Entries:**\n" + "\n".join(names))
+
+    if template.get("bypass_roles"):
+        names = []
+        for rid in template["bypass_roles"]:
+            role = guild.get_role(rid)
+            names.append(role.mention if role else f"<@&{rid}>")
+        blocks.append(":bypass: **Requirements Bypass Roles:**\n" + "\n".join(names))
 
     if winners is not None:
         if winners:
-            blocks.append("🎊 **Winners**\n" + "\n".join(f"<@{w}>" for w in winners))
+            blocks.append(":winner: **Winners**\n" + "\n".join(f"<@{w}>" for w in winners))
         else:
-            blocks.append("🎊 **Winners**\nNo valid entries — no winner could be chosen.")
+            blocks.append(":winner: **Winners**\nNo valid entries — no winner could be chosen.")
 
-    embed.description = "\n\n".join(blocks)
+    embed.description = db.apply_emoji_shortcuts("\n\n".join(blocks))
 
     if template.get("icon_url"):
         embed.set_thumbnail(url=template["icon_url"])
@@ -97,24 +111,23 @@ def build_ended_announcement(guild: discord.Guild, giveaway: dict, winners: list
     """Builds the 'Giveaway Ended!' congrats message + embed shown in the channel."""
     host = guild.get_member(giveaway["host_id"])
     host_mention = host.mention if host else f"<@{giveaway['host_id']}>"
-    prize_text = db.apply_emoji_shortcuts(giveaway["prize"])
 
     verb = "Rerolled" if rerolled else "Ended"
     if winners:
         mentions = ", ".join(f"<@{w}>" for w in winners)
-        content = f"🎉 Congratulations {mentions} for winning {host_mention}'s giveaway!"
+        content = db.apply_emoji_shortcuts(f":party: Congratulations {mentions} for winning {host_mention}'s giveaway!")
         winners_value = "\n".join(f"<@{w}>" for w in winners)
     else:
         content = f"😔 {host_mention}'s giveaway ended with no eligible winner."
         winners_value = "No valid entries."
 
     embed = discord.Embed(
-        title=f"🎉 Giveaway {verb}!",
+        title=db.apply_emoji_shortcuts(f":party: Giveaway {verb}!"),
         description="Congratulations to the winners!" if winners else "No one was eligible to win.",
-        color=discord.Color.green() if winners else discord.Color.dark_gray(),
+        color=discord.Color(config.EMBED_COLOR_HEX),
     )
-    embed.add_field(name="🎁 Prize", value=prize_text, inline=False)
-    embed.add_field(name="🏆 Winners", value=winners_value, inline=False)
+    embed.add_field(name=db.apply_emoji_shortcuts(":prize: Prize"), value=db.apply_emoji_shortcuts(giveaway["prize"]), inline=False)
+    embed.add_field(name=db.apply_emoji_shortcuts(":winner: Winners"), value=winners_value, inline=False)
     embed.set_footer(text=f"Giveaway ID: {giveaway['id']}")
     return content, embed
 
@@ -161,19 +174,23 @@ class GiveawayEditModal(discord.ui.Modal, title="Edit Giveaway"):
 class GiveawayPreviewView(discord.ui.View):
     """Shown to the host before the giveaway goes live: edit fields, or hit Start."""
 
-    def __init__(self, cog: "GiveawayCog", guild: discord.Guild, template: dict, giveaway: dict):
+    def __init__(self, cog: "GiveawayCog", guild: discord.Guild, template: dict, giveaway: dict, target_channel: discord.TextChannel):
         super().__init__(timeout=600)
         self.cog = cog
         self.guild = guild
         self.template = template
         self.giveaway = giveaway
+        self.target_channel = target_channel
         self.giveaway["_created_at"] = time.time()
+        self.edit_button.emoji = db.get_emoji_mention("edit") or "✏️"
+        self.start_button.emoji = db.get_emoji_mention("start") or "🚀"
+        self.cancel_button.emoji = db.get_emoji_mention("cancel") or "🗑️"
 
     def build_preview_embed(self) -> discord.Embed:
         fake = dict(self.giveaway)
         fake["host_id"] = self.giveaway["host_id"]
         embed = build_giveaway_embed(self.guild, fake, self.template, status="running")
-        embed.set_footer(text="Preview — not posted yet. Edit or hit Start when ready.")
+        embed.set_footer(text=f"Preview — will post in #{self.target_channel.name} when started.")
         return embed
 
     @discord.ui.button(label="Edit", style=discord.ButtonStyle.secondary, emoji="✏️")
@@ -192,7 +209,7 @@ class GiveawayPreviewView(discord.ui.View):
         for item in self.children:
             item.disabled = True
         await interaction.edit_original_response(view=self)
-        await self.cog.launch_giveaway(interaction, self.template, self.giveaway)
+        await self.cog.launch_giveaway(interaction, self.template, self.giveaway, self.target_channel)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="🗑️")
     async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -205,21 +222,36 @@ class GiveawayPreviewView(discord.ui.View):
 
 
 class GiveawayJoinView(discord.ui.View):
-    """Persistent-ish view attached to a live giveaway message."""
+    """Persistent view attached to a live giveaway message. custom_id is namespaced
+    per giveaway so multiple concurrent giveaways (and restarts) don't collide."""
 
-    def __init__(self, cog: "GiveawayCog", giveaway_id: int, blacklisted_roles: list[int], entry_count: int):
+    def __init__(
+        self, cog: "GiveawayCog", giveaway_id: int, blacklisted_roles: list[int],
+        entry_count: int, required_roles: list[int] = None, bypass_roles: list[int] = None,
+    ):
         super().__init__(timeout=None)
         self.cog = cog
         self.giveaway_id = giveaway_id
         self.blacklisted_roles = set(blacklisted_roles)
-        self.join_button.label = f"🎉{entry_count}"
+        self.required_roles = set(required_roles or [])
+        self.bypass_roles = set(bypass_roles or [])
+        self.join_button.custom_id = f"giveaway_join_{giveaway_id}"
+        self.join_button.emoji = db.get_emoji_mention("party") or "🎉"
+        self.join_button.label = str(entry_count)
 
-    @discord.ui.button(label="🎉0", style=discord.ButtonStyle.blurple, custom_id="giveaway_join")
+    @discord.ui.button(label="0", style=discord.ButtonStyle.blurple, custom_id="giveaway_join")
     async def join_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         user_role_ids = {r.id for r in interaction.user.roles} if hasattr(interaction.user, "roles") else set()
-        if user_role_ids & self.blacklisted_roles:
-            await interaction.response.send_message("🚫 You're not eligible to enter this giveaway.", ephemeral=True)
-            return
+
+        if not (user_role_ids & self.bypass_roles):
+            if user_role_ids & self.blacklisted_roles:
+                await interaction.response.send_message("🚫 You're not eligible to enter this giveaway.", ephemeral=True)
+                return
+            if self.required_roles and not (user_role_ids & self.required_roles):
+                await interaction.response.send_message(
+                    "🔒 You need one of the required roles to enter this giveaway.", ephemeral=True
+                )
+                return
 
         if db.has_entry(self.giveaway_id, interaction.user.id):
             db.remove_entry(self.giveaway_id, interaction.user.id)
@@ -229,7 +261,7 @@ class GiveawayJoinView(discord.ui.View):
             joined = True
 
         count = db.count_entries(self.giveaway_id)
-        button.label = f"🎉{count}"
+        button.label = str(count)
         await interaction.response.edit_message(view=self)
         msg = "✅ You joined the giveaway! Good luck." if joined else "You left the giveaway."
         await interaction.followup.send(msg, ephemeral=True)
@@ -241,23 +273,36 @@ class GiveawayCog(commands.Cog):
         self.tasks: dict[int, asyncio.Task] = {}
 
     async def cog_load(self):
-        # Reschedule any giveaways that were still running when the bot restarted.
+        # Reschedule any giveaways that were still running when the bot restarted,
+        # and re-attach their join-button views (otherwise clicking them after a
+        # restart would silently fail).
         for g in db.get_running_giveaways():
             self._schedule_end(g["id"], g["end_time"])
+            if not g.get("message_id"):
+                continue
+            try:
+                template = self._template_by_id(g["template_id"])
+                count = db.count_entries(g["id"])
+                view = GiveawayJoinView(self, g["id"], template["blacklisted_roles"], count, template.get("required_roles"), template.get("bypass_roles"))
+                self.bot.add_view(view, message_id=g["message_id"])
+            except Exception as e:
+                print(f"[Giveaway] couldn't re-attach view for giveaway {g['id']}: {e}")
 
     # ---------------- /default-template ----------------
 
-    @app_commands.command(name="default-template", description="Create or update a giveaway template.")
+    @app_commands.command(name="default-template", description="Create, or edit an existing, giveaway template.")
     @event_admin_check()
     async def default_template(self, interaction: discord.Interaction, name: str):
-        modal = TemplateModal(interaction.guild.id, name)
+        existing = db.get_template(interaction.guild.id, name)
+        modal = TemplateModal(interaction.guild.id, name, existing)
         await interaction.response.send_modal(modal)
 
     # ---------------- /ga ----------------
 
     @app_commands.command(name="ga", description="Create a giveaway from a saved template.")
+    @app_commands.describe(channel="Channel to post the giveaway in")
     @giveaway_host_check()
-    async def ga(self, interaction: discord.Interaction, template: str, prize: str, winners: int, duration: str):
+    async def ga(self, interaction: discord.Interaction, template: str, prize: str, winners: int, duration: str, channel: discord.TextChannel = None):
         tmpl = db.get_template(interaction.guild.id, template)
         if not tmpl:
             names = ", ".join(db.list_templates(interaction.guild.id)) or "none yet — use /default-template first"
@@ -275,7 +320,8 @@ class GiveawayCog(commands.Cog):
             await interaction.response.send_message("Number of winners must be at least 1.", ephemeral=True)
             return
 
-        modal = GiveawayBodyModal(self, interaction.channel, tmpl, prize, winners, seconds)
+        target_channel = channel or interaction.channel
+        modal = GiveawayBodyModal(self, target_channel, tmpl, prize, winners, seconds)
         await interaction.response.send_modal(modal)
 
     @ga.autocomplete("template")
@@ -285,9 +331,9 @@ class GiveawayCog(commands.Cog):
 
     # ---------------- launch / end ----------------
 
-    async def launch_giveaway(self, interaction: discord.Interaction, template: dict, giveaway: dict):
+    async def launch_giveaway(self, interaction: discord.Interaction, template: dict, giveaway: dict, target_channel: discord.TextChannel):
         guild = interaction.guild
-        channel = interaction.channel
+        channel = target_channel
 
         giveaway_id = db.create_giveaway(
             guild_id=guild.id,
@@ -302,7 +348,7 @@ class GiveawayCog(commands.Cog):
         row = db.get_giveaway(giveaway_id)
 
         embed = build_giveaway_embed(guild, row, template, status="running")
-        view = GiveawayJoinView(self, giveaway_id, template["blacklisted_roles"], 0)
+        view = GiveawayJoinView(self, giveaway_id, template["blacklisted_roles"], 0, template.get("required_roles"), template.get("bypass_roles"))
 
         msg = await channel.send(embed=embed, view=view)
         thread = None
@@ -321,7 +367,7 @@ class GiveawayCog(commands.Cog):
             role = guild.get_role(ping_role_id)
             mention = role.mention if role else f"<@&{ping_role_id}>"
             await channel.send(
-                f"{mention}\n🎁 A new giveaway just started: **{giveaway['prize']}**!",
+                db.apply_emoji_shortcuts(f"{mention}\n:party: A new giveaway just started: **{giveaway['prize']}**!"),
                 allowed_mentions=discord.AllowedMentions(roles=True),
             )
 
@@ -329,7 +375,7 @@ class GiveawayCog(commands.Cog):
             host = guild.get_member(giveaway["host_id"])
             host_mention = host.mention if host else f"<@{giveaway['host_id']}>"
             await thread.send(
-                f"🎉 Giveaway hosted by {host_mention} — good luck everyone!",
+                db.apply_emoji_shortcuts(f":party: Giveaway hosted by {host_mention} — good luck everyone!"),
                 allowed_mentions=discord.AllowedMentions(users=True),
             )
 
@@ -428,6 +474,71 @@ class GiveawayCog(commands.Cog):
         await interaction.response.send_message("✅ Rerolled.", ephemeral=True)
         await channel.send(content, embed=announce_embed, allowed_mentions=discord.AllowedMentions(users=True))
 
+    # ---------------- participant management (admin only) ----------------
+
+    @app_commands.command(name="giveaway-participants", description="ADMIN: View who has entered a giveaway.")
+    @app_commands.describe(giveaway_id="The giveaway's ID, shown in its embed footer")
+    @event_admin_check()
+    async def giveaway_participants(self, interaction: discord.Interaction, giveaway_id: int):
+        g = db.get_giveaway(giveaway_id)
+        if not g or g["guild_id"] != interaction.guild.id:
+            await interaction.response.send_message(f"No giveaway found with ID `{giveaway_id}` in this server.", ephemeral=True)
+            return
+
+        entries = db.list_entries(giveaway_id)
+        if not entries:
+            await interaction.response.send_message(f"No participants in giveaway **#{giveaway_id}** yet.", ephemeral=True)
+            return
+
+        lines = [f"<@{uid}>" for uid in entries]
+        header = f"**Participants for giveaway #{giveaway_id}** ({len(entries)} total):\n"
+        body = "\n".join(lines)
+        if len(header) + len(body) > 1900:
+            # Trim to fit one message rather than crash on Discord's 2000-char cap.
+            keep = []
+            total = len(header)
+            for line in lines:
+                if total + len(line) + 1 > 1880:
+                    break
+                keep.append(line)
+                total += len(line) + 1
+            body = "\n".join(keep) + f"\n… and {len(entries) - len(keep)} more"
+
+        await interaction.response.send_message(
+            header + body, ephemeral=True, allowed_mentions=discord.AllowedMentions.none()
+        )
+
+    @app_commands.command(name="giveaway-remove-participant", description="ADMIN: Remove a participant from a giveaway.")
+    @app_commands.describe(giveaway_id="The giveaway's ID, shown in its embed footer", user="The participant to remove")
+    @event_admin_check()
+    async def giveaway_remove_participant(self, interaction: discord.Interaction, giveaway_id: int, user: discord.Member):
+        g = db.get_giveaway(giveaway_id)
+        if not g or g["guild_id"] != interaction.guild.id:
+            await interaction.response.send_message(f"No giveaway found with ID `{giveaway_id}` in this server.", ephemeral=True)
+            return
+        if not db.has_entry(giveaway_id, user.id):
+            await interaction.response.send_message(f"{user.mention} isn't entered in giveaway **#{giveaway_id}**.", ephemeral=True, allowed_mentions=discord.AllowedMentions.none())
+            return
+
+        db.remove_entry(giveaway_id, user.id)
+        count = db.count_entries(giveaway_id)
+
+        # Keep the live join button's count in sync if the giveaway is still running.
+        if g["status"] == "running" and g.get("message_id"):
+            try:
+                channel = interaction.guild.get_channel(g["channel_id"])
+                msg = await channel.fetch_message(g["message_id"])
+                template = self._template_by_id(g["template_id"])
+                view = GiveawayJoinView(self, giveaway_id, template["blacklisted_roles"], count, template.get("required_roles"), template.get("bypass_roles"))
+                await msg.edit(view=view)
+            except (discord.NotFound, discord.HTTPException, AttributeError):
+                pass
+
+        await interaction.response.send_message(
+            f"✅ Removed {user.mention} from giveaway **#{giveaway_id}**. Now **{count}** participant(s).",
+            ephemeral=True, allowed_mentions=discord.AllowedMentions.none(),
+        )
+
     def _template_by_id(self, template_id: int) -> dict:
         with db.get_conn() as conn:
             row = conn.execute("SELECT * FROM giveaway_templates WHERE id = ?", (template_id,)).fetchone()
@@ -477,31 +588,83 @@ class GiveawayCog(commands.Cog):
             await interaction.followup.send(msg, ephemeral=True)
 
 
-class TemplateModal(discord.ui.Modal, title="Giveaway Template"):
-    def __init__(self, guild_id: int, name: str):
+def _roles_to_text(ids: list[int]) -> str:
+    return ", ".join(f"<@&{rid}>" for rid in (ids or []))
+
+
+class TemplateModal(discord.ui.Modal, title="Giveaway Template (1/2)"):
+    """First of two chained modals (Discord caps modals at 5 fields each)."""
+
+    def __init__(self, guild_id: int, name: str, existing: dict | None = None):
         super().__init__()
         self.guild_id = guild_id
         self.name = name
-        self.top_message = discord.ui.TextInput(label="Top Message", max_length=100, placeholder="GENERAL GIVEAWAY")
-        self.icon_url = discord.ui.TextInput(label="Icon URL (top-right image)", required=False, max_length=300)
-        self.blacklisted = discord.ui.TextInput(
-            label="Blacklisted Roles (mentions/IDs, comma sep.)", required=False, style=discord.TextStyle.paragraph
+        existing = existing or {}
+        self.top_message = discord.ui.TextInput(
+            label="Top Message", max_length=100, placeholder="GENERAL GIVEAWAY",
+            default=existing.get("top_message") or "",
         )
-        self.extra_entries = discord.ui.TextInput(
-            label="Extra Entry Roles (mentions/IDs, comma sep.)", required=False, style=discord.TextStyle.paragraph
+        self.icon_url = discord.ui.TextInput(
+            label="Icon URL (top-right image)", required=False, max_length=300,
+            default=existing.get("icon_url") or "",
+        )
+        self.blacklisted = discord.ui.TextInput(
+            label="Blacklisted Roles (mentions/IDs, comma sep.)", required=False, style=discord.TextStyle.paragraph,
+            default=_roles_to_text(existing.get("blacklisted_roles")),
+        )
+        self.required = discord.ui.TextInput(
+            label="Must-Have Roles (mentions/IDs, comma sep.)", required=False, style=discord.TextStyle.paragraph,
+            default=_roles_to_text(existing.get("required_roles")),
         )
         self.add_item(self.top_message)
         self.add_item(self.icon_url)
         self.add_item(self.blacklisted)
-        self.add_item(self.extra_entries)
+        self.add_item(self.required)
 
     async def on_submit(self, interaction: discord.Interaction):
-        from cogs.giveaway_cog import parse_role_list  # local import avoids circularity at module load
-        blacklisted_ids = parse_role_list(interaction.guild, self.blacklisted.value)
+        existing = db.get_template(self.guild_id, self.name) or {}
+        modal2 = TemplateModal2(
+            self.guild_id, self.name,
+            top_message=self.top_message.value.strip(),
+            icon_url=self.icon_url.value.strip() or None,
+            blacklisted_text=self.blacklisted.value,
+            required_text=self.required.value,
+            existing=existing,
+        )
+        await interaction.response.send_modal(modal2)
+
+
+class TemplateModal2(discord.ui.Modal, title="Giveaway Template (2/2)"):
+    """Second modal: extra-entry and bypass roles, then actually saves the template."""
+
+    def __init__(self, guild_id: int, name: str, top_message: str, icon_url: str | None,
+                 blacklisted_text: str, required_text: str, existing: dict):
+        super().__init__()
+        self.guild_id = guild_id
+        self.name = name
+        self.top_message_value = top_message
+        self.icon_url_value = icon_url
+        self.blacklisted_text = blacklisted_text
+        self.required_text = required_text
+        self.extra_entries = discord.ui.TextInput(
+            label="Extra Entry Roles (mentions/IDs, comma sep.)", required=False, style=discord.TextStyle.paragraph,
+            default=_roles_to_text(existing.get("extra_entry_roles")),
+        )
+        self.bypass = discord.ui.TextInput(
+            label="Requirements Bypass Roles (comma sep.)", required=False, style=discord.TextStyle.paragraph,
+            default=_roles_to_text(existing.get("bypass_roles")),
+        )
+        self.add_item(self.extra_entries)
+        self.add_item(self.bypass)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        blacklisted_ids = parse_role_list(interaction.guild, self.blacklisted_text)
+        required_ids = parse_role_list(interaction.guild, self.required_text)
         extra_ids = parse_role_list(interaction.guild, self.extra_entries.value)
+        bypass_ids = parse_role_list(interaction.guild, self.bypass.value)
         db.create_template(
-            self.guild_id, self.name, self.top_message.value.strip(),
-            self.icon_url.value.strip() or None, blacklisted_ids, extra_ids,
+            self.guild_id, self.name, self.top_message_value, self.icon_url_value,
+            blacklisted_ids, extra_ids, required_ids, bypass_ids,
         )
         await interaction.response.send_message(f"✅ Template **{self.name}** saved.", ephemeral=True)
 
@@ -530,7 +693,7 @@ class GiveawayBodyModal(discord.ui.Modal, title="Giveaway Message"):
             "body_text": self.body_text.value.strip(),
             "end_time": time.time() + self.seconds,
         }
-        view = GiveawayPreviewView(self.cog, interaction.guild, self.template, giveaway)
+        view = GiveawayPreviewView(self.cog, interaction.guild, self.template, giveaway, self.channel)
         await interaction.response.send_message(embed=view.build_preview_embed(), view=view)
 
 

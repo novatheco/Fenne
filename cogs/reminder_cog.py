@@ -5,6 +5,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+import config
 import database as db
 from cogs.permissions import staff_check, log_app_command_error
 from utils import parse_duration, format_duration
@@ -140,6 +141,16 @@ class ReminderCog(commands.Cog):
         task = asyncio.create_task(self._reminder_runner(reminder_id, remind_at))
         self.reminder_tasks[reminder_id] = task
 
+    def build_reminder_embed(self, message: str, footer_text: str) -> discord.Embed:
+        embed = discord.Embed(
+            title=f"Reminder from {self.bot.user.name}",
+            description=db.apply_emoji_shortcuts(message),
+            color=discord.Color(config.EMBED_COLOR_HEX),
+        )
+        embed.set_footer(text=footer_text)
+        embed.timestamp = discord.utils.utcnow()
+        return embed
+
     async def _reminder_runner(self, reminder_id: int, remind_at: float):
         delay = max(0, remind_at - time.time())
         await asyncio.sleep(delay)
@@ -151,11 +162,32 @@ class ReminderCog(commands.Cog):
             return  # already delivered or removed
 
         user = self.bot.get_user(row["user_id"]) or await self._safe_fetch_user(row["user_id"])
+        mention = user.mention if user else f"<@{row['user_id']}>"
+        content = f"⏰ **Reminder for** {mention}"
+
+        guild = self.bot.get_guild(row["guild_id"]) if row["guild_id"] else None
+        guild_name = guild.name if guild else "Direct Message"
+
+        # Post in the channel it was set in, pinging the user.
+        if row.get("channel_id"):
+            channel = guild.get_channel(row["channel_id"]) if guild else None
+            if channel:
+                try:
+                    await channel.send(
+                        content=content,
+                        embed=self.build_reminder_embed(row["message"], guild_name),
+                        allowed_mentions=discord.AllowedMentions(users=True),
+                    )
+                except discord.HTTPException as e:
+                    print(f"[Reminder #{reminder_id}] could not post in channel {row['channel_id']}: {e}")
+
+        # And DM them privately, also pinging.
         if user:
             try:
-                await user.send(f"⏰ Reminder: {db.apply_emoji_shortcuts(row['message'])}")
+                await user.send(content=content, embed=self.build_reminder_embed(row["message"], "Direct Message"))
             except discord.HTTPException as e:
                 print(f"[Reminder #{reminder_id}] could not DM user {row['user_id']}: {e}")
+
         db.mark_reminder_delivered(reminder_id)
 
     async def _safe_fetch_user(self, user_id: int):
@@ -164,7 +196,7 @@ class ReminderCog(commands.Cog):
         except discord.HTTPException:
             return None
 
-    @app_commands.command(name="remind-me", description="DM yourself a reminder after a delay.")
+    @app_commands.command(name="remind-me", description="Get reminded (in this channel and by DM) after a delay.")
     @app_commands.describe(when="When to be reminded, e.g. 30m, 2h, 1d", message="What to remind you about")
     async def remind_me(self, interaction: discord.Interaction, when: str, message: str):
         seconds = parse_duration(when)
@@ -175,11 +207,13 @@ class ReminderCog(commands.Cog):
             return
         remind_at = time.time() + seconds
         reminder_id = db.create_one_time_reminder(
-            interaction.guild.id if interaction.guild else None, interaction.user.id, message, remind_at
+            interaction.guild.id if interaction.guild else None,
+            interaction.channel.id if interaction.guild else None,
+            interaction.user.id, message, remind_at,
         )
         self.start_reminder_task(reminder_id, remind_at)
         await interaction.response.send_message(
-            f"✅ Got it — I'll DM you in **{format_duration(seconds)}**.", ephemeral=True
+            f"✅ Got it — I'll remind you here and by DM in **{format_duration(seconds)}**.", ephemeral=True
         )
 
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):

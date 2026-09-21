@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+import config
 import database as db
 from cogs.permissions import event_admin_check, log_app_command_error
 
@@ -65,7 +66,7 @@ class InvitesCog(commands.Cog):
         # Re-cache current state regardless of whether we found a match.
         db.cache_invites(guild.id, [(i.code, i.uses or 0, i.inviter.id if i.inviter else None) for i in fresh_invites])
 
-        embed = discord.Embed(title="📥 Member Joined", color=discord.Color.green())
+        embed = discord.Embed(title="💌 Member Joined", color=discord.Color(config.EMBED_COLOR_HEX))
         embed.add_field(name="Invited", value=member.mention, inline=True)
 
         if used_invite and used_invite.inviter:

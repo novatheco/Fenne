@@ -21,3 +21,8 @@ DB_PATH = "eventbot.db"
 
 # Default embed color used where nothing more specific is set (hex, no #).
 DEFAULT_COLOR = "5865f2"
+
+# Fixed accent color (the colored bar down the side) used for the bot's own
+# generated embeds — giveaways, AFK, reminders. Leaderboards and /create-embed
+# panels keep their own per-item color pickers since those are user-configurable.
+EMBED_COLOR_HEX = 0x00FFFF

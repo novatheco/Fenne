@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 from discord import app_commands
 
+import config
 import database as db
 from cogs.permissions import event_admin_check, log_app_command_error
 
@@ -58,14 +59,14 @@ class LeaderboardCog(commands.Cog):
 
     @app_commands.command(name="create-leaderboard", description="Creates a leaderboard")
     @app_commands.describe(
-        channel="Channel", hex_color_code="Color (optional, defaults to #00ff00)",
+        channel="Channel", hex_color_code="Color (optional, defaults to #00FFFF)",
         name="Name", image_url="Image URL (optional)", emoji="Emoji (optional, defaults to 🏆)",
         team_mode="If true, this leaderboard tracks teams (via /team-create) instead of individuals",
     )
     @event_admin_check()
     async def create_leaderboard(
         self, interaction: discord.Interaction, channel: discord.TextChannel, name: str,
-        hex_color_code: str = "#00ff00", image_url: str = None, emoji: str = "🏆", team_mode: bool = False,
+        hex_color_code: str = "#00FFFF", image_url: str = None, emoji: str = "🏆", team_mode: bool = False,
     ):
         if not re.match(r"^#[0-9a-fA-F]{6}$", hex_color_code):
             await interaction.response.send_message("❌ Invalid hex color code.", ephemeral=True)
@@ -184,7 +185,7 @@ class LeaderboardCog(commands.Cog):
             await interaction.response.send_message("No leaderboards found.", ephemeral=True)
             return
         desc = "\n".join(f"- {n}" for n in names)
-        embed = discord.Embed(title="Leaderboards", description=desc, color=discord.Color.green())
+        embed = discord.Embed(title="Leaderboards", description=desc, color=discord.Color(config.EMBED_COLOR_HEX))
         await interaction.response.send_message(embed=embed)
 
     # ---------------- team leaderboards ----------------

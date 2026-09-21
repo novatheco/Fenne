@@ -17,8 +17,8 @@ class EmojiCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    async def _read_image(self, image: discord.Attachment | None, from_emoji: str | None):
-        """Returns (bytes, error_message). Exactly one of image/from_emoji should be set."""
+    async def _read_image(self, image: discord.Attachment | None, from_emoji: str | None, image_url: str | None):
+        """Returns (bytes, error_message). Exactly one of image/from_emoji/image_url should be set."""
         if image is not None:
             if image.size > MAX_EMOJI_BYTES:
                 return None, f"That image is too big ({image.size // 1024}KB) — Discord's emoji cap is 256KB."
@@ -31,33 +31,40 @@ class EmojiCog(commands.Cog):
             animated, _, emoji_id = m.groups()
             ext = "gif" if animated else "png"
             url = f"https://cdn.discordapp.com/emojis/{emoji_id}.{ext}"
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url) as resp:
-                        if resp.status != 200:
-                            return None, "Couldn't fetch that emoji's image from Discord."
-                        data = await resp.read()
-            except aiohttp.ClientError as e:
-                return None, f"Network error fetching that emoji: {e}"
-            if len(data) > MAX_EMOJI_BYTES:
-                return None, "That emoji's image is too big for Discord's 256KB emoji cap."
-            return data, None
+            return await self._fetch_url(url)
 
-        return None, "Provide either an image attachment or an existing emoji to copy."
+        if image_url:
+            return await self._fetch_url(image_url.strip())
+
+        return None, "Provide an image attachment, an existing emoji to copy, or a direct image link."
+
+    async def _fetch_url(self, url: str):
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as resp:
+                    if resp.status != 200:
+                        return None, f"Couldn't fetch that image (HTTP {resp.status})."
+                    data = await resp.read()
+        except aiohttp.ClientError as e:
+            return None, f"Network error fetching that image: {e}"
+        if len(data) > MAX_EMOJI_BYTES:
+            return None, f"That image is too big ({len(data) // 1024}KB) — Discord's emoji cap is 256KB."
+        return data, None
 
     @app_commands.command(
         name="addemoji",
-        description="Upload an image as one of the bot's emojis (out of 2k), usable as :name: in giveaways/reminders.",
+        description="Upload an image as one of the bot's own emojis, usable as :name: in text.",
     )
     @app_commands.describe(
         name="Shortcut name — used as :name: in giveaway/reminder text",
         image="An image file to upload as the emoji (PNG/JPG/GIF, under 256KB)",
         from_emoji="Or paste an existing custom emoji to copy instead of uploading a file",
+        image_url="Or a direct link to an image (e.g. a Discord CDN emoji link)",
     )
     @event_admin_check()
     async def addemoji(
         self, interaction: discord.Interaction, name: str,
-        image: discord.Attachment = None, from_emoji: str = None,
+        image: discord.Attachment = None, from_emoji: str = None, image_url: str = None,
     ):
         clean_name = NAME_CLEAN_RE.sub("", name.strip().lower())
         if not clean_name:
@@ -68,7 +75,7 @@ class EmojiCog(commands.Cog):
 
         await interaction.response.defer(ephemeral=True)
 
-        data, error = await self._read_image(image, from_emoji)
+        data, error = await self._read_image(image, from_emoji, image_url)
         if error:
             await interaction.followup.send(f"❌ {error}", ephemeral=True)
             return

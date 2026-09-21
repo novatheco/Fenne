@@ -23,6 +23,8 @@ CREATE TABLE IF NOT EXISTS giveaway_templates (
     icon_url TEXT,
     blacklisted_roles TEXT NOT NULL DEFAULT '[]',
     extra_entry_roles TEXT NOT NULL DEFAULT '[]',
+    required_roles TEXT NOT NULL DEFAULT '[]',
+    bypass_roles TEXT NOT NULL DEFAULT '[]',
     UNIQUE(guild_id, name)
 );
 
@@ -128,10 +130,19 @@ CREATE TABLE IF NOT EXISTS reminder_loops (
 CREATE TABLE IF NOT EXISTS one_time_reminders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     guild_id INTEGER,
+    channel_id INTEGER,
     user_id INTEGER NOT NULL,
     message TEXT NOT NULL,
     remind_at REAL NOT NULL,
     delivered INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS afk_status (
+    guild_id INTEGER NOT NULL,
+    user_id INTEGER NOT NULL,
+    reason TEXT NOT NULL DEFAULT 'AFK',
+    started_at REAL NOT NULL,
+    PRIMARY KEY (guild_id, user_id)
 );
 
 CREATE TABLE IF NOT EXISTS autoresponses (
@@ -178,7 +189,6 @@ def get_conn():
 def init_db():
     with get_conn() as conn:
         conn.executescript(_SCHEMA)
-        # Migration for databases created before giveaway_ping_role_id was added.
         try:
             conn.execute("ALTER TABLE guild_settings ADD COLUMN giveaway_ping_role_id INTEGER")
         except sqlite3.OperationalError:
@@ -203,6 +213,56 @@ def init_db():
             conn.execute("ALTER TABLE guild_settings ADD COLUMN staff_role_id INTEGER")
         except sqlite3.OperationalError:
             pass
+        # Migration for databases created before one_time_reminders.channel_id was added.
+        try:
+            conn.execute("ALTER TABLE one_time_reminders ADD COLUMN channel_id INTEGER")
+        except sqlite3.OperationalError:
+            pass
+        # Migration for databases created before giveaway_templates required_roles/bypass_roles were added.
+        try:
+            conn.execute("ALTER TABLE giveaway_templates ADD COLUMN required_roles TEXT NOT NULL DEFAULT '[]'")
+        except sqlite3.OperationalError:
+            pass
+        try:
+            conn.execute("ALTER TABLE giveaway_templates ADD COLUMN bypass_roles TEXT NOT NULL DEFAULT '[]'")
+        except sqlite3.OperationalError:
+            pass
+        _seed_known_emojis(conn)
+
+
+# Emojis already uploaded to this bot's application (from the Discord Developer Portal),
+# seeded once so `:name:` shortcuts work without re-running /addemoji for each one.
+# Uses INSERT OR IGNORE so removing one via /removeemoji sticks across restarts.
+_KNOWN_EMOJIS = {
+    "edit": 1551282631872614432,
+    "cancel": 1551282566135423197,
+    "start": 1551282506878165083,
+    "party": 1551281049911435334,
+    "feesh": 1551275046474088448,
+    "hype": 1551274140764344474,
+    "musthave": 1551272608983425136,
+    "bypass2": 1551271284279742545,
+    "bypass": 1551269178218905704,
+    "blacklist": 1551268921397485631,
+    "extraentries": 1551268148014096444,
+    "afktime": 1551263309477445644,
+    "reason": 1551263268943831141,
+    "name": 1551263209867186257,
+    "host": 1551261771002675200,
+    "prize": 1551261645580406804,
+    "winner": 1551261548033613935,
+    "bozo": 1551261079810609335,
+    "fenne": 1551243159609024622,
+    "mail": 1551373142927351911,
+}
+
+
+def _seed_known_emojis(conn):
+    for name, emoji_id in _KNOWN_EMOJIS.items():
+        conn.execute(
+            "INSERT OR IGNORE INTO bot_emojis (name, emoji_id, animated) VALUES (?, ?, 0)",
+            (name, emoji_id),
+        )
 
 
 # ---------------- guild settings ----------------
@@ -266,16 +326,20 @@ def set_staff_role(guild_id, role_id):
 
 # ---------------- giveaway templates ----------------
 
-def create_template(guild_id, name, top_message, icon_url, blacklisted_roles, extra_entry_roles):
+def create_template(guild_id, name, top_message, icon_url, blacklisted_roles, extra_entry_roles, required_roles=None, bypass_roles=None):
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO giveaway_templates "
-            "(guild_id, name, top_message, icon_url, blacklisted_roles, extra_entry_roles) "
-            "VALUES (?, ?, ?, ?, ?, ?) "
+            "(guild_id, name, top_message, icon_url, blacklisted_roles, extra_entry_roles, required_roles, bypass_roles) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(guild_id, name) DO UPDATE SET "
             "top_message=excluded.top_message, icon_url=excluded.icon_url, "
-            "blacklisted_roles=excluded.blacklisted_roles, extra_entry_roles=excluded.extra_entry_roles",
-            (guild_id, name, top_message, icon_url, json.dumps(blacklisted_roles), json.dumps(extra_entry_roles)),
+            "blacklisted_roles=excluded.blacklisted_roles, extra_entry_roles=excluded.extra_entry_roles, "
+            "required_roles=excluded.required_roles, bypass_roles=excluded.bypass_roles",
+            (
+                guild_id, name, top_message, icon_url, json.dumps(blacklisted_roles), json.dumps(extra_entry_roles),
+                json.dumps(required_roles or []), json.dumps(bypass_roles or []),
+            ),
         )
 
 
@@ -289,6 +353,8 @@ def get_template(guild_id, name):
         d = dict(row)
         d["blacklisted_roles"] = json.loads(d["blacklisted_roles"])
         d["extra_entry_roles"] = json.loads(d["extra_entry_roles"])
+        d["required_roles"] = json.loads(d.get("required_roles") or "[]")
+        d["bypass_roles"] = json.loads(d.get("bypass_roles") or "[]")
         return d
 
 
@@ -665,6 +731,12 @@ def emoji_mention(row):
     return f"<a:{row['name']}:{row['emoji_id']}>" if row["animated"] else f"<:{row['name']}:{row['emoji_id']}>"
 
 
+def get_emoji_mention(name):
+    """Convenience: returns the mention string for a registered bot emoji by name, or None."""
+    row = get_bot_emoji(name)
+    return emoji_mention(row) if row else None
+
+
 def apply_emoji_shortcuts(text):
     """Replaces :name: occurrences in text with the bot's own registered application emojis."""
     if not text:
@@ -820,11 +892,11 @@ def deactivate_reminder_loop(loop_id):
 
 # ---------------- one-time reminders ----------------
 
-def create_one_time_reminder(guild_id, user_id, message, remind_at):
+def create_one_time_reminder(guild_id, channel_id, user_id, message, remind_at):
     with get_conn() as conn:
         cur = conn.execute(
-            "INSERT INTO one_time_reminders (guild_id, user_id, message, remind_at) VALUES (?, ?, ?, ?)",
-            (guild_id, user_id, message, remind_at),
+            "INSERT INTO one_time_reminders (guild_id, channel_id, user_id, message, remind_at) VALUES (?, ?, ?, ?, ?)",
+            (guild_id, channel_id, user_id, message, remind_at),
         )
         return cur.lastrowid
 
@@ -838,4 +910,29 @@ def get_pending_reminders():
 def mark_reminder_delivered(reminder_id):
     with get_conn() as conn:
         conn.execute("UPDATE one_time_reminders SET delivered = 1 WHERE id = ?", (reminder_id,))
+
+
+# ---------------- afk ----------------
+
+def set_afk(guild_id, user_id, reason, started_at):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO afk_status (guild_id, user_id, reason, started_at) VALUES (?, ?, ?, ?) "
+            "ON CONFLICT(guild_id, user_id) DO UPDATE SET reason = excluded.reason, started_at = excluded.started_at",
+            (guild_id, user_id, reason, started_at),
+        )
+
+
+def get_afk(guild_id, user_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM afk_status WHERE guild_id = ? AND user_id = ?", (guild_id, user_id)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def clear_afk(guild_id, user_id):
+    with get_conn() as conn:
+        cur = conn.execute("DELETE FROM afk_status WHERE guild_id = ? AND user_id = ?", (guild_id, user_id))
+        return cur.rowcount > 0
 

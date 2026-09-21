@@ -23,6 +23,7 @@ COGS = [
     "cogs.leaderboard_cog",
     "cogs.emoji_cog",
     "cogs.reminder_cog",
+    "cogs.afk_cog",
 ]
 
 
