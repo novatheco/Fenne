@@ -12,7 +12,7 @@ from cogs.permissions import event_admin_check, log_app_command_error
 def build_leaderboard_embed(guild: discord.Guild, lb: dict) -> discord.Embed:
     if lb.get("mode") == "team":
         teams = db.list_teams(guild.id, lb["name"])
-        desc = ""
+        entries = []
         for i, team in enumerate(teams):
             member_ids = db.get_team_members(team["id"])
             member_names = []
@@ -20,18 +20,16 @@ def build_leaderboard_embed(guild: discord.Guild, lb: dict) -> discord.Embed:
                 member = guild.get_member(uid)
                 member_names.append(member.display_name if member else f"Unknown (ID:{uid})")
             members_str = ", ".join(member_names) if member_names else "*no members*"
-            desc += f"**{i + 1}. {team['team_name']}**\n> {lb['emoji']} {team['score']}\n> {members_str}\n"
-        if not desc:
-            desc = "No teams yet! Use `/team-create` to add one."
+            entries.append(f"**{i + 1}. {team['team_name']}**\n> {lb['emoji']} {team['score']}\n> {members_str}")
+        desc = "\n\n".join(entries) if entries else "No teams yet! Use `/team-create` to add one."
     else:
         scores = db.get_scores(guild.id, lb["name"])
-        desc = ""
+        entries = []
         for i, row in enumerate(scores[:10]):
             member = guild.get_member(row["user_id"])
             username = member.display_name if member else f"Unknown (ID:{row['user_id']})"
-            desc += f"**{i + 1}. {username}**\n> {lb['emoji']} {row['score']}\n"
-        if not desc:
-            desc = "No one is on the leaderboard yet!"
+            entries.append(f"**{i + 1}. {username}**\n> {lb['emoji']} {row['score']}")
+        desc = "\n\n".join(entries) if entries else "No one is on the leaderboard yet!"
 
     embed = discord.Embed(title=lb["name"], description=desc, color=discord.Color(int(lb["color"] or "5865f2", 16)))
     if lb.get("image_url"):
@@ -86,6 +84,7 @@ class LeaderboardCog(commands.Cog):
 
     @app_commands.command(name="leaderboard-snapshot", description="Post a static copy of a leaderboard that will NOT auto-update.")
     @app_commands.describe(name="Leaderboard name")
+    @event_admin_check()
     async def leaderboard_snapshot(self, interaction: discord.Interaction, name: str):
         lb = db.get_leaderboard(interaction.guild.id, name)
         if not lb:
@@ -147,6 +146,7 @@ class LeaderboardCog(commands.Cog):
 
     @app_commands.command(name="trophy-check", description="See how many trophies a user has on a specific leaderboard.")
     @app_commands.describe(name="Leaderboard name", user="User (defaults to you)")
+    @event_admin_check()
     async def trophy_check(self, interaction: discord.Interaction, name: str, user: discord.Member = None):
         lb = db.get_leaderboard(interaction.guild.id, name)
         if not lb:
@@ -179,6 +179,7 @@ class LeaderboardCog(commands.Cog):
         await interaction.response.send_message(f"🗑️ Leaderboard {name} deleted.", ephemeral=True)
 
     @app_commands.command(name="all-leaderboards", description="Lists all leaderboards.")
+    @event_admin_check()
     async def all_leaderboards(self, interaction: discord.Interaction):
         names = db.list_leaderboards(interaction.guild.id)
         if not names:

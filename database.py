@@ -145,6 +145,12 @@ CREATE TABLE IF NOT EXISTS afk_status (
     PRIMARY KEY (guild_id, user_id)
 );
 
+CREATE TABLE IF NOT EXISTS afk_ignored_channels (
+    guild_id INTEGER NOT NULL,
+    channel_id INTEGER NOT NULL,
+    PRIMARY KEY (guild_id, channel_id)
+);
+
 CREATE TABLE IF NOT EXISTS autoresponses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     guild_id INTEGER NOT NULL,
@@ -254,6 +260,9 @@ _KNOWN_EMOJIS = {
     "bozo": 1551261079810609335,
     "fenne": 1551243159609024622,
     "mail": 1551373142927351911,
+    "congrats": 1553158048153870366,
+    "afk": 1553158569170440192,
+    "cat_cute": 1553158818509099015,
 }
 
 
@@ -935,4 +944,36 @@ def clear_afk(guild_id, user_id):
     with get_conn() as conn:
         cur = conn.execute("DELETE FROM afk_status WHERE guild_id = ? AND user_id = ?", (guild_id, user_id))
         return cur.rowcount > 0
+
+
+def add_ignored_channel(guild_id, channel_id):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO afk_ignored_channels (guild_id, channel_id) VALUES (?, ?)",
+            (guild_id, channel_id),
+        )
+
+
+def remove_ignored_channel(guild_id, channel_id):
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM afk_ignored_channels WHERE guild_id = ? AND channel_id = ?", (guild_id, channel_id)
+        )
+        return cur.rowcount > 0
+
+
+def is_channel_ignored(guild_id, channel_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM afk_ignored_channels WHERE guild_id = ? AND channel_id = ?", (guild_id, channel_id)
+        ).fetchone()
+        return row is not None
+
+
+def list_ignored_channels(guild_id):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT channel_id FROM afk_ignored_channels WHERE guild_id = ?", (guild_id,)
+        ).fetchall()
+        return [r["channel_id"] for r in rows]
 

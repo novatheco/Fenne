@@ -122,6 +122,7 @@ class EmojiCog(commands.Cog):
         await interaction.followup.send(f"🗑️ Removed `:{row['name']}:`.", ephemeral=True)
 
     @app_commands.command(name="listemojis", description="List the bot's registered emoji shortcuts.")
+    @event_admin_check()
     async def listemojis(self, interaction: discord.Interaction):
         rows = db.list_bot_emojis()
         if not rows:

@@ -38,7 +38,7 @@ def parse_role_list(guild: discord.Guild, text: str) -> list[int]:
 def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, status: str, winners: list[int] | None = None) -> discord.Embed:
     color = discord.Color(config.EMBED_COLOR_HEX)
     top_message = template["top_message"] or "GIVEAWAY"
-    title = f":party: {top_message} :party:" if status == "running" else f"Giveaway — {status.title()}"
+    title = f":party: {top_message}" if status == "running" else f"Giveaway — {status.title()}"
     embed = discord.Embed(title=db.apply_emoji_shortcuts(title), color=color)
 
     host = guild.get_member(giveaway["host_id"])
@@ -49,7 +49,7 @@ def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, s
     # (:name:) are resolved to the bot's own uploaded emojis in one pass at the end.
     blocks = []
 
-    blocks.append(f":prize: **Prize:**\n{giveaway['prize']}")
+    blocks.append(f":prize: **Prize:** {giveaway['prize']}")
     blocks.append(f":winner: **Number of Winners:** {giveaway['winner_count']}")
     blocks.append(f":host: **Hosted By:** {host_mention}")
 
@@ -112,23 +112,27 @@ def build_ended_announcement(guild: discord.Guild, giveaway: dict, winners: list
     host = guild.get_member(giveaway["host_id"])
     host_mention = host.mention if host else f"<@{giveaway['host_id']}>"
 
-    verb = "Rerolled" if rerolled else "Ended"
+    verb = "rerolled" if rerolled else "ended"
     if winners:
         mentions = ", ".join(f"<@{w}>" for w in winners)
-        content = db.apply_emoji_shortcuts(f":party: Congratulations {mentions} for winning {host_mention}'s giveaway!")
-        winners_value = "\n".join(f"<@{w}>" for w in winners)
+        content = db.apply_emoji_shortcuts(f":congrats: Congratulations {mentions} for winning {host_mention}'s giveaway!")
+        winners_block = ":winner: **Winners:**\n" + "\n".join(f"<@{w}>" for w in winners)
     else:
         content = f"😔 {host_mention}'s giveaway ended with no eligible winner."
-        winners_value = "No valid entries."
+        winners_block = ":winner: **Winners:**\nNo valid entries."
+
+    top_block = ""
+    if giveaway.get("body_text"):
+        top_block += giveaway["body_text"] + "\n"
+    top_block += f":prize: **Prize:** {giveaway['prize']}"
+
+    blocks = [top_block, winners_block, f"Giveaway ID: {giveaway['id']}"]
 
     embed = discord.Embed(
-        title=db.apply_emoji_shortcuts(f":party: Giveaway {verb}!"),
-        description="Congratulations to the winners!" if winners else "No one was eligible to win.",
+        title=db.apply_emoji_shortcuts(f":congrats: Giveaway {verb}!"),
+        description=db.apply_emoji_shortcuts("\n\n".join(blocks)),
         color=discord.Color(config.EMBED_COLOR_HEX),
     )
-    embed.add_field(name=db.apply_emoji_shortcuts(":prize: Prize"), value=db.apply_emoji_shortcuts(giveaway["prize"]), inline=False)
-    embed.add_field(name=db.apply_emoji_shortcuts(":winner: Winners"), value=winners_value, inline=False)
-    embed.set_footer(text=f"Giveaway ID: {giveaway['id']}")
     return content, embed
 
 
