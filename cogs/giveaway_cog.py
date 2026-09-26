@@ -431,7 +431,7 @@ class GiveawayCog(commands.Cog):
             thread = guild.get_channel(g["thread_id"]) or guild.get_thread(g["thread_id"])
             if thread and winners:
                 mentions = " ".join(f"<@{w}>" for w in winners)
-                await thread.send(f":hype: Congrats {mentions}! Winners were announced in {channel.mention}.")
+                await thread.send(db.apply_emoji_shortcuts(f":hype: Congrats {mentions}! Winners were announced in {channel.mention}."))
 
         self.tasks.pop(giveaway_id, None)
 
