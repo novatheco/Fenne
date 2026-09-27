@@ -163,7 +163,7 @@ class ReminderCog(commands.Cog):
 
         user = self.bot.get_user(row["user_id"]) or await self._safe_fetch_user(row["user_id"])
         mention = user.mention if user else f"<@{row['user_id']}>"
-        content = f"⏰ **Reminder for** {mention}"
+        content = db.apply_emoji_shortcuts(f":afktime: **Reminder for** {mention}")
 
         guild = self.bot.get_guild(row["guild_id"]) if row["guild_id"] else None
         guild_name = guild.name if guild else "Direct Message"

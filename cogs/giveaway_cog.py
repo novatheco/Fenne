@@ -51,7 +51,7 @@ def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, s
 
     blocks.append(f":prize: **Prize:** {giveaway['prize']}")
     blocks.append(f":winner: **Number of Winners:** {giveaway['winner_count']}")
-    blocks.append(f":host: **Hosted By:** {host_mention}")
+    blocks.append(f":pray: **Hosted By:** {host_mention}")
 
     if giveaway.get("body_text"):
         blocks.append(giveaway["body_text"])
@@ -92,9 +92,9 @@ def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, s
 
     if winners is not None:
         if winners:
-            blocks.append(":winner: **Winners**\n" + "\n".join(f"<@{w}>" for w in winners))
+            blocks.append(":winner: **Winners:** " + " ".join(f"<@{w}>" for w in winners))
         else:
-            blocks.append(":winner: **Winners**\nNo valid entries — no winner could be chosen.")
+            blocks.append(":winner: **Winners:** No valid entries — no winner could be chosen.")
 
     embed.description = db.apply_emoji_shortcuts("\n\n".join(blocks))
 
@@ -116,10 +116,10 @@ def build_ended_announcement(guild: discord.Guild, giveaway: dict, winners: list
     if winners:
         mentions = ", ".join(f"<@{w}>" for w in winners)
         content = db.apply_emoji_shortcuts(f":congrats: Congratulations {mentions} for winning {host_mention}'s giveaway!")
-        winners_block = ":winner: **Winners:**\n" + "\n".join(f"<@{w}>" for w in winners)
+        winners_block = ":winner: **Winners:** " + " ".join(f"<@{w}>" for w in winners)
     else:
         content = f"😔 {host_mention}'s giveaway ended with no eligible winner."
-        winners_block = ":winner: **Winners:**\nNo valid entries."
+        winners_block = ":winner: **Winners:** No valid entries."
 
     top_block = ""
     if giveaway.get("body_text"):
@@ -371,7 +371,7 @@ class GiveawayCog(commands.Cog):
             role = guild.get_role(ping_role_id)
             mention = role.mention if role else f"<@&{ping_role_id}>"
             await channel.send(
-                db.apply_emoji_shortcuts(f"{mention}\n:party: A new giveaway just started: **{giveaway['prize']}**!"),
+                db.apply_emoji_shortcuts(f":party: A new giveaway just started: **{giveaway['prize']}**!\n{mention}"),
                 allowed_mentions=discord.AllowedMentions(roles=True),
             )
 
@@ -635,7 +635,29 @@ class TemplateModal(discord.ui.Modal, title="Giveaway Template (1/2)"):
             required_text=self.required.value,
             existing=existing,
         )
-        await interaction.response.send_modal(modal2)
+        # Chaining a modal directly from another modal's on_submit is unreliable on
+        # some discord.py/API combinations (fails with a cryptic "Invalid Form Body"
+        # error). Routing the second modal through a button click instead avoids that.
+        await interaction.response.send_message(
+            "Step 1 saved. Click below to continue with extra-entry and bypass roles.",
+            view=ContinueToStep2View(modal2), ephemeral=True,
+        )
+
+
+class ContinueToStep2View(discord.ui.View):
+    def __init__(self, modal2: "TemplateModal2"):
+        super().__init__(timeout=300)
+        self.modal2 = modal2
+
+    @discord.ui.button(label="Continue (Step 2/2)", style=discord.ButtonStyle.primary, emoji="➡️")
+    async def continue_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.send_modal(self.modal2)
+        try:
+            await interaction.message.edit(view=self)
+        except discord.HTTPException:
+            pass
 
 
 class TemplateModal2(discord.ui.Modal, title="Giveaway Template (2/2)"):

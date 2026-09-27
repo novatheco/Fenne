@@ -263,6 +263,7 @@ _KNOWN_EMOJIS = {
     "congrats": 1553158048153870366,
     "afk": 1553158569170440192,
     "cat_cute": 1553158818509099015,
+    "pray": 1553782424394268872,
 }
 
 
@@ -272,6 +273,12 @@ def _seed_known_emojis(conn):
             "INSERT OR IGNORE INTO bot_emojis (name, emoji_id, animated) VALUES (?, ?, 0)",
             (name, emoji_id),
         )
+    # "hype" is an animated emoji — fix it in case it was already seeded as static
+    # before we knew that (INSERT OR IGNORE above won't touch existing rows).
+    conn.execute(
+        "UPDATE bot_emojis SET animated = 1 WHERE name = 'hype' AND emoji_id = ?",
+        (_KNOWN_EMOJIS["hype"],),
+    )
 
 
 # ---------------- guild settings ----------------
