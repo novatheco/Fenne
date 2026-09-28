@@ -35,6 +35,38 @@ def parse_role_list(guild: discord.Guild, text: str) -> list[int]:
     return ids
 
 
+def parse_role_weight_list(guild: discord.Guild, text: str) -> dict[str, int]:
+    """Parses entries like '<@&123>:2, <@&456>' into {role_id_str: weight}.
+    A missing ':weight' defaults to 1. Keys are strings so this matches the JSON
+    shape stored in the database (JSON object keys are always strings)."""
+    if not text:
+        return {}
+    result = {}
+    for chunk in re.split(r"[,\n]+", text):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        weight = 1
+        if ":" in chunk:
+            role_part, weight_part = chunk.rsplit(":", 1)
+            role_part = role_part.strip()
+            weight_part = weight_part.strip()
+            if weight_part.isdigit():
+                weight = max(1, int(weight_part))
+                chunk = role_part
+        m = re.match(r"<@&(\d+)>", chunk)
+        if m:
+            result[m.group(1)] = weight
+            continue
+        if chunk.isdigit():
+            result[chunk] = weight
+            continue
+        role = discord.utils.get(guild.roles, name=chunk)
+        if role:
+            result[str(role.id)] = weight
+    return result
+
+
 def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, status: str, winners: list[int] | None = None) -> discord.Embed:
     color = discord.Color(config.EMBED_COLOR_HEX)
     top_message = template["top_message"] or "GIVEAWAY"
@@ -58,29 +90,30 @@ def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, s
 
     if status == "running":
         end_ts = int(giveaway["end_time"])
-        blocks.append(f"⏳ **Ends:** <t:{end_ts}:R>")
+        blocks.append(f":hourglass: **Ends:** <t:{end_ts}:R>")
     else:
-        blocks.append("⏳ **Ended**")
+        blocks.append(":hourglass: **Ended**")
 
     if template["blacklisted_roles"]:
         names = []
         for rid in template["blacklisted_roles"]:
             role = guild.get_role(rid)
             names.append(role.mention if role else f"<@&{rid}>")
-        blocks.append(":blacklist: **Blacklisted roles:**\n" + "\n".join(names))
+        blocks.append(":blacklist: **Blacklisted Roles:**\n" + "\n".join(names))
 
     if template.get("required_roles"):
         names = []
         for rid in template["required_roles"]:
             role = guild.get_role(rid)
             names.append(role.mention if role else f"<@&{rid}>")
-        blocks.append(":musthave: **Must have the role:**\n" + "\n".join(names))
+        blocks.append(":musthave: **Required Roles:**\n" + "\n".join(names))
 
     if template["extra_entry_roles"]:
         names = []
-        for rid in template["extra_entry_roles"]:
+        for rid_str, weight in template["extra_entry_roles"].items():
+            rid = int(rid_str)
             role = guild.get_role(rid)
-            names.append((role.mention if role else f"<@&{rid}>") + " +1")
+            names.append((role.mention if role else f"<@&{rid}>") + f" +{weight}")
         blocks.append(":extraentries: **Extra Entries:**\n" + "\n".join(names))
 
     if template.get("bypass_roles"):
@@ -88,7 +121,7 @@ def build_giveaway_embed(guild: discord.Guild, giveaway: dict, template: dict, s
         for rid in template["bypass_roles"]:
             role = guild.get_role(rid)
             names.append(role.mention if role else f"<@&{rid}>")
-        blocks.append(":bypass: **Requirements Bypass Roles:**\n" + "\n".join(names))
+        blocks.append(":bypass2: **Bypass Roles:**\n" + "\n".join(names))
 
     if winners is not None:
         if winners:
@@ -325,8 +358,15 @@ class GiveawayCog(commands.Cog):
             return
 
         target_channel = channel or interaction.channel
-        modal = GiveawayBodyModal(self, target_channel, tmpl, prize, winners, seconds)
-        await interaction.response.send_modal(modal)
+        giveaway = {
+            "prize": prize,
+            "winner_count": winners,
+            "host_id": interaction.user.id,
+            "body_text": "",
+            "end_time": time.time() + seconds,
+        }
+        view = GiveawayPreviewView(self, interaction.guild, tmpl, giveaway, target_channel)
+        await interaction.response.send_message(embed=view.build_preview_embed(), view=view)
 
     @ga.autocomplete("template")
     async def ga_template_autocomplete(self, interaction: discord.Interaction, current: str):
@@ -544,13 +584,7 @@ class GiveawayCog(commands.Cog):
         )
 
     def _template_by_id(self, template_id: int) -> dict:
-        with db.get_conn() as conn:
-            row = conn.execute("SELECT * FROM giveaway_templates WHERE id = ?", (template_id,)).fetchone()
-        d = dict(row)
-        import json as _json
-        d["blacklisted_roles"] = _json.loads(d["blacklisted_roles"])
-        d["extra_entry_roles"] = _json.loads(d["extra_entry_roles"])
-        return d
+        return db.get_template_by_id(template_id)
 
     def _template_name_by_id(self, template_id: int) -> str:
         with db.get_conn() as conn:
@@ -560,14 +594,16 @@ class GiveawayCog(commands.Cog):
     def _pick_winners(self, guild: discord.Guild, entries: list[int], template: dict, winner_count: int) -> list[int]:
         if not entries:
             return []
-        extra_role_ids = set(template["extra_entry_roles"])
+        extra_weights = {int(k): v for k, v in (template.get("extra_entry_roles") or {}).items()}
         weighted = []
         for user_id in entries:
             member = guild.get_member(user_id)
             tickets = 1
-            if member and extra_role_ids:
+            if member and extra_weights:
                 member_role_ids = {r.id for r in member.roles}
-                tickets += len(member_role_ids & extra_role_ids)
+                for rid, weight in extra_weights.items():
+                    if rid in member_role_ids:
+                        tickets += weight
             weighted.extend([user_id] * tickets)
 
         winners = []
@@ -590,6 +626,10 @@ class GiveawayCog(commands.Cog):
             await interaction.response.send_message(msg, ephemeral=True)
         else:
             await interaction.followup.send(msg, ephemeral=True)
+
+
+def _role_weights_to_text(weights: dict | None) -> str:
+    return ", ".join(f"<@&{rid}>:{w}" for rid, w in (weights or {}).items())
 
 
 def _roles_to_text(ids: list[int]) -> str:
@@ -673,8 +713,9 @@ class TemplateModal2(discord.ui.Modal, title="Giveaway Template (2/2)"):
         self.blacklisted_text = blacklisted_text
         self.required_text = required_text
         self.extra_entries = discord.ui.TextInput(
-            label="Extra Entry Roles (mentions/IDs, comma sep.)", required=False, style=discord.TextStyle.paragraph,
-            default=_roles_to_text(existing.get("extra_entry_roles")),
+            label="Extra Entry Roles (role:extra, e.g. @VIP:3)", required=False, style=discord.TextStyle.paragraph,
+            placeholder="@Booster:3, @Donator:2, @Member (no number = +1)",
+            default=_role_weights_to_text(existing.get("extra_entry_roles")),
         )
         self.bypass = discord.ui.TextInput(
             label="Requirements Bypass Roles (comma sep.)", required=False, style=discord.TextStyle.paragraph,
@@ -686,41 +727,13 @@ class TemplateModal2(discord.ui.Modal, title="Giveaway Template (2/2)"):
     async def on_submit(self, interaction: discord.Interaction):
         blacklisted_ids = parse_role_list(interaction.guild, self.blacklisted_text)
         required_ids = parse_role_list(interaction.guild, self.required_text)
-        extra_ids = parse_role_list(interaction.guild, self.extra_entries.value)
+        extra_ids = parse_role_weight_list(interaction.guild, self.extra_entries.value)
         bypass_ids = parse_role_list(interaction.guild, self.bypass.value)
         db.create_template(
             self.guild_id, self.name, self.top_message_value, self.icon_url_value,
             blacklisted_ids, extra_ids, required_ids, bypass_ids,
         )
         await interaction.response.send_message(f"✅ Template **{self.name}** saved.", ephemeral=True)
-
-
-class GiveawayBodyModal(discord.ui.Modal, title="Giveaway Message"):
-    def __init__(self, cog: GiveawayCog, channel, template: dict, prize: str, winners: int, seconds: int):
-        super().__init__()
-        self.cog = cog
-        self.channel = channel
-        self.template = template
-        self.prize = prize
-        self.winners = winners
-        self.seconds = seconds
-        self.body_text = discord.ui.TextInput(
-            label="Giveaway message (shown in the embed)", style=discord.TextStyle.paragraph,
-            required=False, max_length=1000,
-            placeholder="e.g. decided to stop waiting for kingdom anime and started manga...",
-        )
-        self.add_item(self.body_text)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        giveaway = {
-            "prize": self.prize,
-            "winner_count": self.winners,
-            "host_id": interaction.user.id,
-            "body_text": self.body_text.value.strip(),
-            "end_time": time.time() + self.seconds,
-        }
-        view = GiveawayPreviewView(self.cog, interaction.guild, self.template, giveaway, self.channel)
-        await interaction.response.send_message(embed=view.build_preview_embed(), view=view)
 
 
 async def setup(bot: commands.Bot):

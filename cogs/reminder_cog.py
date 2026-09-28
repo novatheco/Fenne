@@ -12,13 +12,14 @@ from utils import parse_duration, format_duration
 
 
 class ReminderLoopMessageModal(discord.ui.Modal, title="Reminder Message"):
-    def __init__(self, cog: "ReminderCog", channel: discord.TextChannel, role: discord.Role, interval_seconds: int, created_by: int):
+    def __init__(self, cog: "ReminderCog", channel: discord.TextChannel, role: discord.Role, interval_seconds: int, created_by: int, color: str | None):
         super().__init__()
         self.cog = cog
         self.channel = channel
         self.role = role
         self.interval_seconds = interval_seconds
         self.created_by = created_by
+        self.color = color
         self.message_text = discord.ui.TextInput(
             label="Message", style=discord.TextStyle.paragraph, max_length=1900,
             placeholder="Reminder to do your daily checklist!\n;daily | ;swap | ;hunt | ;quest",
@@ -29,7 +30,7 @@ class ReminderLoopMessageModal(discord.ui.Modal, title="Reminder Message"):
         next_run = time.time() + self.interval_seconds
         loop_id = db.create_reminder_loop(
             interaction.guild.id, self.channel.id, self.role.id, self.interval_seconds,
-            self.message_text.value.strip(), self.created_by, next_run,
+            self.message_text.value.strip(), self.created_by, next_run, self.color,
         )
         self.cog.start_loop_task(loop_id)
         await interaction.response.send_message(
@@ -77,27 +78,41 @@ class ReminderCog(commands.Cog):
             role = guild.get_role(row["role_id"]) if guild else None
             if channel and role:
                 try:
-                    await channel.send(
-                        f"{role.mention} {db.apply_emoji_shortcuts(row['message'])}",
-                        allowed_mentions=discord.AllowedMentions(roles=True),
-                    )
+                    color_hex = row.get("color")
+                    color = discord.Color(int(color_hex, 16)) if color_hex else discord.Color(config.EMBED_COLOR_HEX)
+                    embed = discord.Embed(description=db.apply_emoji_shortcuts(row["message"]), color=color)
+                    await channel.send(embed=embed)
+                    # Sent as a second message so the ping lands below the embed —
+                    # Discord always renders embeds after message content, never before.
+                    await channel.send(role.mention, allowed_mentions=discord.AllowedMentions(roles=True))
                 except discord.HTTPException as e:
                     print(f"[ReminderLoop #{loop_id}] failed to send: {e}")
 
             db.set_reminder_loop_next_run(loop_id, time.time() + row["interval_seconds"])
 
     @app_commands.command(name="remind-loop", description="Set up a recurring reminder that pings a role on a schedule.")
-    @app_commands.describe(interval="How often it repeats, e.g. 1h, 30m, 1d", role="Role to ping", channel="Channel to post the reminder in")
+    @app_commands.describe(
+        interval="How often it repeats, e.g. 1h, 30m, 1d", role="Role to ping",
+        channel="Channel to post the reminder in", color="Embed side-color as hex, e.g. FF00AA (optional)",
+    )
     @staff_check()
-    async def remind_loop(self, interaction: discord.Interaction, interval: str, role: discord.Role, channel: discord.TextChannel):
+    async def remind_loop(self, interaction: discord.Interaction, interval: str, role: discord.Role, channel: discord.TextChannel, color: str = None):
         seconds = parse_duration(interval)
         if not seconds:
             await interaction.response.send_message(
                 "Couldn't parse that interval. Try things like `1h`, `30m`, `1d`.", ephemeral=True
             )
             return
+        clean_color = None
+        if color:
+            clean_color = color.strip().lstrip("#")
+            try:
+                int(clean_color, 16)
+            except ValueError:
+                await interaction.response.send_message("That doesn't look like a valid hex color, e.g. `FF00AA`.", ephemeral=True)
+                return
         await interaction.response.send_modal(
-            ReminderLoopMessageModal(self, channel, role, seconds, interaction.user.id)
+            ReminderLoopMessageModal(self, channel, role, seconds, interaction.user.id, clean_color)
         )
 
     @app_commands.command(name="remind-loop-list", description="List active recurring reminders in this server.")

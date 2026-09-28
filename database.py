@@ -124,7 +124,8 @@ CREATE TABLE IF NOT EXISTS reminder_loops (
     message TEXT NOT NULL,
     created_by INTEGER NOT NULL,
     next_run REAL NOT NULL,
-    active INTEGER NOT NULL DEFAULT 1
+    active INTEGER NOT NULL DEFAULT 1,
+    color TEXT
 );
 
 CREATE TABLE IF NOT EXISTS one_time_reminders (
@@ -224,6 +225,11 @@ def init_db():
             conn.execute("ALTER TABLE one_time_reminders ADD COLUMN channel_id INTEGER")
         except sqlite3.OperationalError:
             pass
+        # Migration for databases created before reminder_loops.color was added.
+        try:
+            conn.execute("ALTER TABLE reminder_loops ADD COLUMN color TEXT")
+        except sqlite3.OperationalError:
+            pass
         # Migration for databases created before giveaway_templates required_roles/bypass_roles were added.
         try:
             conn.execute("ALTER TABLE giveaway_templates ADD COLUMN required_roles TEXT NOT NULL DEFAULT '[]'")
@@ -264,6 +270,7 @@ _KNOWN_EMOJIS = {
     "afk": 1553158569170440192,
     "cat_cute": 1553158818509099015,
     "pray": 1553782424394268872,
+    "hourglass": 1553857010557124721,
 }
 
 
@@ -359,19 +366,33 @@ def create_template(guild_id, name, top_message, icon_url, blacklisted_roles, ex
         )
 
 
+def _parse_template_row(row):
+    d = dict(row)
+    d["blacklisted_roles"] = json.loads(d["blacklisted_roles"])
+    raw_extra = json.loads(d["extra_entry_roles"])
+    # Back-compat: older templates stored this as a flat list of role IDs (all +1).
+    # Newer templates store {role_id_str: weight} so weights can be customized.
+    if isinstance(raw_extra, list):
+        d["extra_entry_roles"] = {str(rid): 1 for rid in raw_extra}
+    else:
+        d["extra_entry_roles"] = raw_extra
+    d["required_roles"] = json.loads(d.get("required_roles") or "[]")
+    d["bypass_roles"] = json.loads(d.get("bypass_roles") or "[]")
+    return d
+
+
 def get_template(guild_id, name):
     with get_conn() as conn:
         row = conn.execute(
             "SELECT * FROM giveaway_templates WHERE guild_id = ? AND name = ?", (guild_id, name)
         ).fetchone()
-        if not row:
-            return None
-        d = dict(row)
-        d["blacklisted_roles"] = json.loads(d["blacklisted_roles"])
-        d["extra_entry_roles"] = json.loads(d["extra_entry_roles"])
-        d["required_roles"] = json.loads(d.get("required_roles") or "[]")
-        d["bypass_roles"] = json.loads(d.get("bypass_roles") or "[]")
-        return d
+        return _parse_template_row(row) if row else None
+
+
+def get_template_by_id(template_id):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM giveaway_templates WHERE id = ?", (template_id,)).fetchone()
+        return _parse_template_row(row) if row else None
 
 
 def list_templates(guild_id):
@@ -868,12 +889,12 @@ def disband_team(team_id):
 
 # ---------------- reminder loops ----------------
 
-def create_reminder_loop(guild_id, channel_id, role_id, interval_seconds, message, created_by, next_run):
+def create_reminder_loop(guild_id, channel_id, role_id, interval_seconds, message, created_by, next_run, color=None):
     with get_conn() as conn:
         cur = conn.execute(
             "INSERT INTO reminder_loops (guild_id, channel_id, role_id, interval_seconds, message, "
-            "created_by, next_run) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (guild_id, channel_id, role_id, interval_seconds, message, created_by, next_run),
+            "created_by, next_run, color) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (guild_id, channel_id, role_id, interval_seconds, message, created_by, next_run, color),
         )
         return cur.lastrowid
 

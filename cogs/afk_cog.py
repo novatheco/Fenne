@@ -89,7 +89,7 @@ class AfkCog(commands.Cog):
                 continue
             embed = discord.Embed(
                 description=db.apply_emoji_shortcuts(
-                    f"🔴 {member.mention} is currently AFK.\n"
+                    f":name: {member.mention} is currently AFK.\n"
                     f":reason: **Reason:** {afk_row['reason']}\n"
                     f":afktime: **Started at:** <t:{int(afk_row['started_at'])}:R>"
                 ),
