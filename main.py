@@ -24,6 +24,8 @@ COGS = [
     "cogs.emoji_cog",
     "cogs.reminder_cog",
     "cogs.afk_cog",
+    "cogs.automod_cog",
+    "cogs.starboard_cog",
 ]
 
 

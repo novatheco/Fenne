@@ -1,3 +1,4 @@
+import re
 import time
 
 import discord
@@ -74,16 +75,23 @@ class AfkCog(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author.bot or not message.guild:
             return
-        if not message.mentions:
+        # Only trigger on an @mention actually typed in the message, not Discord's
+        # implicit "reply pings the original author" mention (message.mentions
+        # includes both, which made this fire just from replying to someone).
+        typed_ids = {int(m) for m in re.findall(r"<@!?(\d+)>", message.content)}
+        if not typed_ids:
             return
         if db.is_channel_ignored(message.guild.id, message.channel.id):
             return
 
         seen = set()
-        for member in message.mentions:
-            if member.id in seen or member.bot:
+        for user_id in typed_ids:
+            if user_id in seen:
                 continue
-            seen.add(member.id)
+            seen.add(user_id)
+            member = message.guild.get_member(user_id)
+            if not member or member.bot:
+                continue
             afk_row = db.get_afk(message.guild.id, member.id)
             if not afk_row:
                 continue

@@ -243,9 +243,12 @@ class GiveawayPreviewView(discord.ui.View):
             await interaction.response.send_message("Only the host can start this giveaway.", ephemeral=True)
             return
         await interaction.response.defer()
-        for item in self.children:
-            item.disabled = True
-        await interaction.edit_original_response(view=self)
+        # Delete the preview/editing message entirely now that it's live, rather
+        # than leaving a disabled copy sitting around.
+        try:
+            await interaction.delete_original_response()
+        except discord.HTTPException:
+            pass
         await self.cog.launch_giveaway(interaction, self.template, self.giveaway, self.target_channel)
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.danger, emoji="🗑️")
@@ -402,18 +405,6 @@ class GiveawayCog(commands.Cog):
             pass
 
         db.set_giveaway_message(giveaway_id, msg.id, thread.id if thread else None)
-
-        # Ping the server's configured giveaway-ping role (set via /giveaway-ping-role),
-        # not the template's blacklisted/extra-entry roles.
-        settings = db.get_guild_settings(guild.id)
-        ping_role_id = settings.get("giveaway_ping_role_id")
-        if ping_role_id:
-            role = guild.get_role(ping_role_id)
-            mention = role.mention if role else f"<@&{ping_role_id}>"
-            await channel.send(
-                db.apply_emoji_shortcuts(f":party: A new giveaway just started: **{giveaway['prize']}**!\n{mention}"),
-                allowed_mentions=discord.AllowedMentions(roles=True),
-            )
 
         if thread:
             host = guild.get_member(giveaway["host_id"])

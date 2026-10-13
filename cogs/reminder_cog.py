@@ -231,6 +231,39 @@ class ReminderCog(commands.Cog):
             f"✅ Got it — I'll remind you here and by DM in **{format_duration(seconds)}**.", ephemeral=True
         )
 
+    @app_commands.command(name="remind-list", description="See your own active reminders and how long until each fires.")
+    async def remind_list(self, interaction: discord.Interaction):
+        reminders = db.get_user_pending_reminders(interaction.user.id)
+        embed = discord.Embed(title="Your Reminders", color=discord.Color(config.EMBED_COLOR_HEX))
+        if not reminders:
+            embed.description = "You have no active reminders."
+        else:
+            embed.description = "\n".join(
+                f"**#{r['id']}** — {r['message']} — <t:{int(r['remind_at'])}:R>" for r in reminders
+            )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="remind-clear", description="Cancel one of your own active reminders.")
+    @app_commands.describe(reminder_id="The reminder's ID, from /remind-list")
+    async def remind_clear(self, interaction: discord.Interaction, reminder_id: int):
+        row = db.get_one_time_reminder(reminder_id)
+        if not row or row["user_id"] != interaction.user.id or row["delivered"]:
+            await interaction.response.send_message("No active reminder found with that ID.", ephemeral=True)
+            return
+        db.cancel_reminder(reminder_id)
+        task = self.reminder_tasks.pop(reminder_id, None)
+        if task:
+            task.cancel()
+        await interaction.response.send_message(f"🗑️ Reminder **#{reminder_id}** cancelled.", ephemeral=True)
+
+    @remind_clear.autocomplete("reminder_id")
+    async def remind_clear_autocomplete(self, interaction: discord.Interaction, current: str):
+        reminders = db.get_user_pending_reminders(interaction.user.id)
+        return [
+            app_commands.Choice(name=f"#{r['id']}: {r['message'][:60]}", value=r["id"])
+            for r in reminders
+        ][:25]
+
     async def cog_app_command_error(self, interaction: discord.Interaction, error: app_commands.AppCommandError):
         msg = str(error) if isinstance(error, app_commands.CheckFailure) else "An unexpected error occurred."
         if not isinstance(error, app_commands.CheckFailure):

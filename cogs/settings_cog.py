@@ -24,18 +24,6 @@ class SettingsCog(commands.Cog):
         )
 
 
-    @app_commands.command(name="giveaway-ping-role", description="Set the role pinged when a new giveaway starts.")
-    async def giveaway_ping_role(self, interaction: discord.Interaction, role: discord.Role):
-        if not is_event_admin(interaction):
-            await interaction.response.send_message(
-                "Only the server owner, an Administrator, or the admin role can set this up.", ephemeral=True
-            )
-            return
-        db.set_giveaway_ping_role(interaction.guild.id, role.id)
-        await interaction.response.send_message(
-            f"✅ {role.mention} will now be pinged whenever a new giveaway starts.", ephemeral=True
-        )
-
     @app_commands.command(name="giveaway-host-role", description="Set which role (besides the admin role) is allowed to host giveaways.")
     async def giveaway_host_role(self, interaction: discord.Interaction, role: discord.Role):
         if not is_event_admin(interaction):

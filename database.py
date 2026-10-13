@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS guild_settings (
     invite_log_channel_id INTEGER,
     giveaway_ping_role_id INTEGER,
     giveaway_host_role_id INTEGER,
-    staff_role_id INTEGER
+    staff_role_id INTEGER,
+    skip_next_giveaway_ping INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS giveaway_templates (
@@ -152,6 +153,35 @@ CREATE TABLE IF NOT EXISTS afk_ignored_channels (
     PRIMARY KEY (guild_id, channel_id)
 );
 
+CREATE TABLE IF NOT EXISTS automod_channels (
+    guild_id INTEGER NOT NULL,
+    channel_id INTEGER NOT NULL,
+    pattern TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    ping_user INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (guild_id, channel_id)
+);
+
+CREATE TABLE IF NOT EXISTS starboard_settings (
+    guild_id INTEGER PRIMARY KEY,
+    channel_id INTEGER,
+    threshold INTEGER NOT NULL DEFAULT 3
+);
+
+CREATE TABLE IF NOT EXISTS starboard_ignored_channels (
+    guild_id INTEGER NOT NULL,
+    channel_id INTEGER NOT NULL,
+    PRIMARY KEY (guild_id, channel_id)
+);
+
+CREATE TABLE IF NOT EXISTS starboard_messages (
+    guild_id INTEGER NOT NULL,
+    source_message_id INTEGER NOT NULL,
+    star_message_id INTEGER NOT NULL,
+    PRIMARY KEY (guild_id, source_message_id)
+);
+
 CREATE TABLE IF NOT EXISTS autoresponses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     guild_id INTEGER NOT NULL,
@@ -230,6 +260,11 @@ def init_db():
             conn.execute("ALTER TABLE reminder_loops ADD COLUMN color TEXT")
         except sqlite3.OperationalError:
             pass
+        # Migration for databases created before skip_next_giveaway_ping was added.
+        try:
+            conn.execute("ALTER TABLE guild_settings ADD COLUMN skip_next_giveaway_ping INTEGER NOT NULL DEFAULT 0")
+        except sqlite3.OperationalError:
+            pass
         # Migration for databases created before giveaway_templates required_roles/bypass_roles were added.
         try:
             conn.execute("ALTER TABLE giveaway_templates ADD COLUMN required_roles TEXT NOT NULL DEFAULT '[]'")
@@ -271,6 +306,7 @@ _KNOWN_EMOJIS = {
     "cat_cute": 1553158818509099015,
     "pray": 1553782424394268872,
     "hourglass": 1553857010557124721,
+    "loser": 1554451152446169178,
 }
 
 
@@ -299,6 +335,7 @@ def get_guild_settings(guild_id):
             "guild_id": guild_id, "admin_role_id": None,
             "invite_log_channel_id": None, "giveaway_ping_role_id": None,
             "giveaway_host_role_id": None, "staff_role_id": None,
+            "skip_next_giveaway_ping": 0,
         }
 
 
@@ -317,15 +354,6 @@ def set_invite_log_channel(guild_id, channel_id):
             "INSERT INTO guild_settings (guild_id, invite_log_channel_id) VALUES (?, ?) "
             "ON CONFLICT(guild_id) DO UPDATE SET invite_log_channel_id = excluded.invite_log_channel_id",
             (guild_id, channel_id),
-        )
-
-
-def set_giveaway_ping_role(guild_id, role_id):
-    with get_conn() as conn:
-        conn.execute(
-            "INSERT INTO guild_settings (guild_id, giveaway_ping_role_id) VALUES (?, ?) "
-            "ON CONFLICT(guild_id) DO UPDATE SET giveaway_ping_role_id = excluded.giveaway_ping_role_id",
-            (guild_id, role_id),
         )
 
 
@@ -1005,3 +1033,142 @@ def list_ignored_channels(guild_id):
         ).fetchall()
         return [r["channel_id"] for r in rows]
 
+
+# ---------------- automod: channel message-pattern restriction ----------------
+
+def set_automod_channel(guild_id, channel_id, pattern, title, message, ping_user):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO automod_channels (guild_id, channel_id, pattern, title, message, ping_user) "
+            "VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(guild_id, channel_id) DO UPDATE SET pattern=excluded.pattern, "
+            "title=excluded.title, message=excluded.message, ping_user=excluded.ping_user",
+            (guild_id, channel_id, pattern, title, message, int(ping_user)),
+        )
+
+
+def remove_automod_channel(guild_id, channel_id):
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM automod_channels WHERE guild_id = ? AND channel_id = ?", (guild_id, channel_id)
+        )
+        return cur.rowcount > 0
+
+
+def get_automod_channel(guild_id, channel_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM automod_channels WHERE guild_id = ? AND channel_id = ?", (guild_id, channel_id)
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def list_automod_channels(guild_id):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM automod_channels WHERE guild_id = ?", (guild_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+# ---------------- one-time reminders: list/cancel for a user ----------------
+
+def get_user_pending_reminders(user_id):
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM one_time_reminders WHERE user_id = ? AND delivered = 0 ORDER BY remind_at",
+            (user_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_one_time_reminder(reminder_id):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM one_time_reminders WHERE id = ?", (reminder_id,)).fetchone()
+        return dict(row) if row else None
+
+
+def cancel_reminder(reminder_id):
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM one_time_reminders WHERE id = ? AND delivered = 0", (reminder_id,)
+        )
+        return cur.rowcount > 0
+
+
+
+# ---------------- starboard ----------------
+
+def get_starboard_settings(guild_id):
+    with get_conn() as conn:
+        row = conn.execute("SELECT * FROM starboard_settings WHERE guild_id = ?", (guild_id,)).fetchone()
+        return dict(row) if row else {"guild_id": guild_id, "channel_id": None, "threshold": 3}
+
+
+def set_starboard_channel(guild_id, channel_id):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO starboard_settings (guild_id, channel_id) VALUES (?, ?) "
+            "ON CONFLICT(guild_id) DO UPDATE SET channel_id = excluded.channel_id",
+            (guild_id, channel_id),
+        )
+
+
+def set_starboard_threshold(guild_id, threshold):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO starboard_settings (guild_id, threshold) VALUES (?, ?) "
+            "ON CONFLICT(guild_id) DO UPDATE SET threshold = excluded.threshold",
+            (guild_id, threshold),
+        )
+
+
+def add_starboard_ignored_channel(guild_id, channel_id):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO starboard_ignored_channels (guild_id, channel_id) VALUES (?, ?)",
+            (guild_id, channel_id),
+        )
+
+
+def remove_starboard_ignored_channel(guild_id, channel_id):
+    with get_conn() as conn:
+        cur = conn.execute(
+            "DELETE FROM starboard_ignored_channels WHERE guild_id = ? AND channel_id = ?",
+            (guild_id, channel_id),
+        )
+        return cur.rowcount > 0
+
+
+def is_starboard_ignored(guild_id, channel_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM starboard_ignored_channels WHERE guild_id = ? AND channel_id = ?",
+            (guild_id, channel_id),
+        ).fetchone()
+        return row is not None
+
+
+def get_starboard_message(guild_id, source_message_id):
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT star_message_id FROM starboard_messages WHERE guild_id = ? AND source_message_id = ?",
+            (guild_id, source_message_id),
+        ).fetchone()
+        return row["star_message_id"] if row else None
+
+
+def set_starboard_message(guild_id, source_message_id, star_message_id):
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO starboard_messages (guild_id, source_message_id, star_message_id) VALUES (?, ?, ?)",
+            (guild_id, source_message_id, star_message_id),
+        )
+
+
+def delete_starboard_message(guild_id, source_message_id):
+    with get_conn() as conn:
+        conn.execute(
+            "DELETE FROM starboard_messages WHERE guild_id = ? AND source_message_id = ?",
+            (guild_id, source_message_id),
+        )
