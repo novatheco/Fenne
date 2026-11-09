@@ -1,0 +1,138 @@
+{
+  "alcremie": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789491230576711/alcremie.gif?ex=6ab6e368&is=6ab591e8&hm=2666327a676373db500b81846ad6b1163dfe1393e619cf8f0cca1af8cac82748&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791005105758308/shiny-alcremie.gif?ex=6ab6e4d1&is=6ab59351&hm=3bb62360ace9abae9fb3654f63867f8af79430c0792b08e845d8b9cfc47609b0&"
+  },
+  "appletun": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789492665024683/appletun.gif?ex=6ab6e368&is=6ab591e8&hm=c2a1e5461f6217745a5f0f34d39776ddd3bdfb8da4e61fc3a0a1dddfd24d51f0&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791005986824342/shiny-appletun.gif?ex=6ab6e4d1&is=6ab59351&hm=161275f5ac2ce53a51866dbaeac48ac88d08976672685348e11a5f7aca21bd01&"
+  },
+  "blastoise": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789493415682109/blastoise.gif?ex=6ab6e368&is=6ab591e8&hm=4d30b7385ee875550474ec5685ccf4b5a3058a16d173fb42fb18dfc34dc3b50a&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791006968025289/shiny-blastoise.gif?ex=6ab6e4d1&is=6ab59351&hm=e7e0b6497001482cc86420b47810b69aafe481c71bed4575fd422427c433c8c0&"
+  },
+  "butterfree": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789494351003719/butterfree.gif?ex=6ab6e368&is=6ab591e8&hm=cca66b97b1dd8e9705af75095dcbe1c4ac83646b22fdef6cd810ad43842cc076&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791007958011985/shiny-butterfree.gif?ex=6ab6e4d1&is=6ab59351&hm=1b5b28759e58c42b2a6c967eddf6434f18c3601329eeb815ede591023dee4dd3&"
+  },
+  "centiskorch": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789495127085206/centiskorch.gif?ex=6ab6e369&is=6ab591e9&hm=ee6637e4b549d1337f330a6451828b3c53300d8de5b7c1acd18bc547ad3760f6&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791008729759784/shiny-centiskorch.gif?ex=6ab6e4d1&is=6ab59351&hm=a1ac025f58b4fa9557164d94a260913040de2de7e677d164958992852901ac30&"
+  },
+  "charizard": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789495869480990/charizard.gif?ex=6ab6e369&is=6ab591e9&hm=bfcbf4563146d27f4a3882175a54254dc375b621a3e7d57f4a641c6ca46564a0&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791009405182056/shiny-charizard.gif?ex=6ab6e4d2&is=6ab59352&hm=197a33488a375e6036599ce1f2a1ba1d61cb4cadc5fa116b5f571e9fe684b643&"
+  },
+  "cinderace": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789496955797584/cinderace.gif?ex=6ab6e369&is=6ab591e9&hm=031c58929d9d2cdcefad9c771d2922a1fd1065e8b8221d95c46836d0d8a96694&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791010117947482/shiny-cinderace.gif?ex=6ab6e4d2&is=6ab59352&hm=b13bea555b86ee0afd0238699626bb1cd0412593f461c1947e76ac7e45e8f8fc&"
+  },
+  "coalossal": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789498021027850/coalossal.gif?ex=6ab6e369&is=6ab591e9&hm=3feacd75e7ae8a854aeeff8c443e53bbe66e8175870e99f820fbe547a2967689&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791011133100093/shiny-coalossal.gif?ex=6ab6e4d2&is=6ab59352&hm=96cadd93f5a1b1ea93249a416599b4d64fedcc3dfaf46bc25497378e8bbe192a&"
+  },
+  "copperajah": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789499048890459/copperajah.gif?ex=6ab6e36a&is=6ab591ea&hm=6b2a1f7169f9333fef054ce464615dc5c608c2ca85be073783469773dee1843a&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791011858587719/shiny-copperajah.gif?ex=6ab6e4d2&is=6ab59352&hm=07454d952f4ca28ea609410a40879530d80d5fad7fc088d9b1b4cdea118c287c&"
+  },
+  "corviknight": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789499862323200/corviknight.gif?ex=6ab6e36a&is=6ab591ea&hm=160838c899f00b775075f262ccbb1e441a51088f3d6bbd577d674b720ad24af9&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791012618018867/shiny-corviknight.gif?ex=6ab6e4d2&is=6ab59352&hm=f7930f7bda2f905918f9a8dd6dfdc86d18a9291aa3e474ca79f5f9c549747672&"
+  },
+  "drednaw": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789538139537438/drednaw.gif?ex=6ab6e373&is=6ab591f3&hm=3bae5a6cba8fbe3428add3f254b133bd7f25bf19c0fbdb4ad4ea4f9f04094847&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791074953760829/shiny-drednaw.gif?ex=6ab6e4e1&is=6ab59361&hm=e81bed67cbff9a851d731c1076981e0548c4b54d5838c906f3282db238b83a89&"
+  },
+  "duraludon": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789540341682258/duraludon.gif?ex=6ab6e373&is=6ab591f3&hm=56c44cd7bd4a7279d89490482ec0d77eef292f2b2d6248f54c1b945bf371adfa&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791076979613768/shiny-duraludon.gif?ex=6ab6e4e2&is=6ab59362&hm=54cf97b97532b8f956f25c04d8b5de45180a7d26688fc8005abd3d1297ae1ccd&"
+  },
+  "eevee": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789541738254336/eevee.gif?ex=6ab6e374&is=6ab591f4&hm=e7133f07c2ad53cc99d6e121c70ae904cd395dd0e91f52aae40c0b9c6f38cd1c&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791077625397288/shiny-eevee.gif?ex=6ab6e4e2&is=6ab59362&hm=66f9bb693f8f1a5b432e2fb81016644bb19d0e5210921c56af0c949c356f3723&"
+  },
+  "eternatus-eternamax": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789543374160004/eternatus-eternamax.gif?ex=6ab6e374&is=6ab591f4&hm=4f93b2951abd9d76d83284e1ffff1b1c3d34b13f2e44e6b05338059852d87dee&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791078476849182/shiny-eternatus-eternamax.gif?ex=6ab6e4e2&is=6ab59362&hm=d643deb28d30afb8fc77ca1ee84aaea3488805b35d7a45752dde7914dec8a7&"
+  },
+  "flapple": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789546259849227/flapple.gif?ex=6ab6e375&is=6ab591f5&hm=c88a0388098f7483cd61cb1bb795a66f1230b062604b70fc046eb32596bc3a62&",
+    "shiny": "https://media.discordapp.net/attachments/1551423632511860776/1557489358527799368/shiny-flapple.gif?backend=b2&ex=6ac7fc7f&is=6ac6aaff&hm=88914128b989eceff4336f9063bc1a24a91cea763dceec265f827b7addc7ce56&="
+  },
+  "garbodor": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789548633948230/garbodor.gif?ex=6ab6e375&is=6ab591f5&hm=2255955fc8f7adfb84e1e850066cb949d799a00f619ba8be3787beaa6db47134&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791080582389760/shiny-garbodor.gif?ex=6ab6e4e3&is=6ab59363&hm=c0aa69b801d2982cfeeb7470bf6c0978b39b8608d371fe26d7b6afeb6a97fe9b&"
+  },
+  "gengar": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789552408694885/gengar.gif?ex=6ab6e376&is=6ab591f6&hm=cb725403dc9a004a18c8c164a2497b7e783ce3856e91cc4c44e34067a7120828&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791081601728612/shiny-gengar.gif?ex=6ab6e4e3&is=6ab59363&hm=e16e179194c7c0d518b4b75f2e4f4a94df68323e7629b48e3d5858faf7024730&"
+  },
+  "grimmsnarl": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789554136879256/grimmsnarl.gif?ex=6ab6e377&is=6ab591f7&hm=210e8f4c1fb6ce37daa1871e030c1b95acd7ca1423ef7be22211fd0ae45286b6&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791082406780958/shiny-grimmsnarl.gif?ex=6ab6e4e3&is=6ab59363&hm=4e742a07b770b9c3a9f45f7f0a6cc4558bb8f2ece9962ec56e66be1cdc0358d5&"
+  },
+  "hatterene": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789556179509448/hatterene.gif?ex=6ab6e377&is=6ab591f7&hm=8a575b4c8e741a6f43582ea54476a61fbafbcbf396af1692190c29e0ef7f7955&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791083635843152/shiny-hatterene.gif?ex=6ab6e4e3&is=6ab59363&hm=fd4f06e38127a79fec1416ed933294186c1b799bbf4ee61f39fa0fb1c8970c0d&"
+  },
+  "inteleon": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789557873741934/inteleon.gif?ex=6ab6e378&is=6ab591f8&hm=4b3f244ef79e9e6f4daeb11db11b754393993a80a9e004aa25ec41f3322de353&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791084201943122/shiny-inteleon.gif?ex=6ab6e4e3&is=6ab59363&hm=ed7bd0d76f98afbe217df01078edd69fbba12b0ebc953753a4db01dec2fe1b05&"
+  },
+  "kingler": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789600605573190/kingler.gif?ex=6ab6e382&is=6ab59202&hm=00ad693263815b5c153c99a20acee6edc8e2308a7bda339518ea001dd2e58c32&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791132180586638/shiny-kingler.gif?ex=6ab6e4ef&is=6ab5936f&hm=d816bb1ace20a3a9d149f0cc549402d5906a3908f265e22029d6bb37bd7700a9&"
+  },
+  "lapras": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789601981300847/lapras.gif?ex=6ab6e382&is=6ab59202&hm=820715511fa4de7638632fa91ed34ac83bd82c8b56ed0d3c828c70bb31133854&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791134105895073/shiny-lapras.gif?ex=6ab6e4ef&is=6ab5936f&hm=56460cfe8e50605d3aa95c95a887d8ac0f687d973e10baed0308a13be659ba58&"
+  },
+  "machamp": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789602795004025/Machamp.gif?ex=6ab6e382&is=6ab59202&hm=13774407464d97db110685878d1ce0da6dbd4db66124108f141612cfa5587d9c&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791134902943890/shiny-machamp.gif?ex=6ab6e4f0&is=6ab59370&hm=16335badd36ffdf28beefd9ae32eb6603d2fe9df416d6d35c57fc274342ee1f7&"
+  },
+  "meowth": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789603440656394/meowth.gif?ex=6ab6e382&is=6ab59202&hm=24bee662ec194b5837ec0dbafc7bfdeaedbfacb3b1e6a1f8fefff7bcb0734183&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791136588800141/shiny-meowth.gif?ex=6ab6e4f0&is=6ab59370&hm=a1845cc298c6cc341bdaf94d5fdd00136b5f6f94d0d037447bfa240345816e4e&"
+  },
+  "melmetal": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789603994570862/metmetal.gif?ex=6ab6e383&is=6ab59203&hm=c80f79a51401824ad0920b59a3ffdb4f5b916567a2cf8e605fe28107a19b4e94&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791135666311168/shiny-melmetal.gif?ex=6ab6e4f0&is=6ab59370&hm=4dfabe49b64129096e477a6f1deb4b57ab7c70966c8da3f6b17f86d0da712524&"
+  },
+  "orbeetle": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789605420372080/orbeetle.gif?ex=6ab6e383&is=6ab59203&hm=ebe8cd7f49ff0e1506ceb71db944621c1ff604c44ba72d98992dc99c463cea76&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791137419530370/shiny-orbeetle.gif?ex=6ab6e4f0&is=6ab59370&hm=69062ea59a69a3a793711cbeb46e8a61f530d342c7ec0c68f9345a05da0e56c2&"
+  },
+  "pikachu": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789606246907954/pikachu.gif?ex=6ab6e383&is=6ab59203&hm=1e8b6d3b537a576f9073ae3aafa4bb9e376bdaa80a575f7c0bc2b5bfb1a70d4d&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791138254061608/shiny-pikachu.gif?ex=6ab6e4f0&is=6ab59370&hm=5b7f6a82017876836abecff297f8e7dd8e175bdaa80a575f7c0bc2b5bfb1a70d4d&"
+  },
+  "rillaboom": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789606922199090/rillaboom.gif?ex=6ab6e383&is=6ab59203&hm=27189d637e7428ec0cee1a8acd22725e0fc8a0a739f7078ad68755cfe8a769bc&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791139264766082/shiny-rillaboom.gif?ex=6ab6e4f1&is=6ab59371&hm=4bc845b0f26d4219fe572178ee4a49bf2bcc51b1f395ca44a17b9d8115acab85&"
+  },
+  "sandaconda": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789607781769286/sandaconda.gif?ex=6ab6e383&is=6ab59203&hm=3b4181f72d0d87212963e9fb3b1977fb4108e429524bfa8f9a4b03016ae262bb&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791140355280896/shiny-sandaconda.gif?ex=6ab6e4f1&is=6ab59371&hm=6df4932989ef1f66e00500526f5dd7abfca4897791bf8008dfefd0836b2bf4d5&"
+  },
+  "snorlax": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789608625082368/snorlax.gif?ex=6ab6e384&is=6ab59204&hm=b0f10e757b593451e27943b1dcecea5e2e9c39f773886467a9839f137fb93fa9&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791141034885150/shiny-snorlax.gif?ex=6ab6e4f1&is=6ab59371&hm=074b2a9bea052228f09b2cd0c21438f8c7827a2248f7d318f34f7bfbf6c8c6d5&"
+  },
+  "toxtricity": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789645304139956/toxtricity.gif?ex=6ab6e38c&is=6ab5920c&hm=325e1acac00f0aca6448d4a4443792957bf58219b06d5126594117f92ed391c4&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791180625051778/shiny-toxtricity.gif?ex=6ab6e4fa&is=6ab5937a&hm=6639573ea2d26a9a670d9e4e47f21b1d3f5c410a47631d4964f8cf08f0a6ebf1&"
+  },
+  "urshifu-rapidstrike": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789646960762890/urshifu-rapidstrike.gif?ex=6ab6e38d&is=6ab5920d&hm=d3331a10ab3b1d4ed420490736c139e051ebf425ce943433585cfacb9c6641f0&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791181899997316/Shiny-Urshifu.gif?ex=6ab6e4fb&is=6ab5937b&hm=831579fa602d985fcc5a43c85e3944a5b3139e6f8ff1f7fb5dacf618b6ba6314&"
+  },
+  "urshifu-singlestrike": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789647871180900/urshifu-singlestrike.gif?ex=6ab6e38d&is=6ab5920d&hm=f8eef09fbaa10ccedb0a1c4c0f75642344d89295a3def62a27d47eeedb8273f6&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791183141376090/shiny-urshifu-singlestrike.gif?ex=6ab6e4fb&is=6ab5937b&hm=9c27c82336d8d499a63c2baa7a0f2b761c5dda82edc73994afadd17bef488156&"
+  },
+  "venusaur": {
+    "normal": "https://cdn.discordapp.com/attachments/1348252405556576266/1552789648776892456/venusaur.gif?ex=6ab6e38d&is=6ab5920d&hm=63f6926cfadf2e0dbe6c94c7524cc19de771c3c0343da7541e97a984554b0d2e&",
+    "shiny": "https://cdn.discordapp.com/attachments/1348252405556576266/1552791183925977098/shiny-venusaur.gif?ex=6ab6e4fb&is=6ab5937b&hm=6a4ff968969d0a8c96db78ca40301ed7c9781a2503a5b9d44def0cac8285ade1&"
+  }
+}
