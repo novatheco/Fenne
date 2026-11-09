@@ -26,6 +26,7 @@ COGS = [
     "cogs.afk_cog",
     "cogs.automod_cog",
     "cogs.starboard_cog",
+    "cogs.worldboss_pings"
 ]
 
 
